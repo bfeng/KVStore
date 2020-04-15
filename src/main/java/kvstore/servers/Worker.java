@@ -65,6 +65,9 @@ public class Worker extends ServerBase {
         channel.shutdown();
     }
 
+    /**
+     * Propagate the write rquest to other workers
+    */
     private void bcastWriteReq(WriteReq req) {
         for (int i = 0; i < getWorkerConf().size(); i++) {
             ServerConfiguration sc = getWorkerConf().get(i);

@@ -17,6 +17,7 @@ abstract class ServerBase {
 
     protected ServerBase(String configuration) throws IOException {
         workerConf = new ArrayList<>();
+        // Pare the configuration when initiating the serverBase
         parse(configuration);
     }
 
@@ -71,6 +72,11 @@ abstract class ServerBase {
         worker
     }
 
+    /**
+     * The serverConfiguration saves related metadata for the server
+     * - A nested static inner class which is a static member of ServerBase class
+     * - The final suggests the variable can only be assigned once
+    */
     static class ServerConfiguration {
         final String ip; // ip can be hostname as well
         final int port;
