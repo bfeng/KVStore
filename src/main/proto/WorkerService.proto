@@ -1,7 +1,21 @@
 syntax = "proto3";
 option java_multiple_files = true;
+import "Common.proto";
 
 package kvstore.servers;
 
+message WriteReqBcast {
+    int32 sender = 1;
+    int32 receiver = 2;
+    kvstore.common.WriteReq request = 3;
+}
+
+message BcastResp {
+    int32 receiver = 1;
+    int32 status = 2;
+}
+
 service WorkerService {
+    rpc handleWrite (kvstore.common.WriteReq) returns (kvstore.common.WriteResp);
+    rpc handleBcastWrite (WriteReqBcast) returns (BcastResp);
 }

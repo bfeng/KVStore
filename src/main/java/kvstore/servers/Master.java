@@ -1,11 +1,16 @@
 package kvstore.servers;
 
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
+import kvstore.common.WriteReq;
+import kvstore.common.WriteResp;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.logging.Logger;
 
 public class Master extends ServerBase {
@@ -46,6 +51,18 @@ public class Master extends ServerBase {
         }));
     }
 
+    private WriteResp sendWriteReq(int workerId, WriteReq req) {
+        ManagedChannel channel = ManagedChannelBuilder
+                .forAddress(getWorkerConf().get(workerId).ip, getWorkerConf().get(workerId).port)
+                .usePlaintext()
+                .build();
+        WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
+        WriteResp resp = stub.handleWrite(req);
+        logger.info(String.format("RPC %d: Worker[%d] has done this request", resp.getStatus(), resp.getReceiver()));
+        channel.shutdown();
+        return resp;
+    }
+
     /**
      * Main launches the server from the command line.
      */
@@ -69,6 +86,16 @@ public class Master extends ServerBase {
             master.updateStatus(workerId, status);
             MasterResponse response = MasterResponse.newBuilder().setStatus(0).build();
             responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void writeMsg(WriteReq request, StreamObserver<WriteResp> responseObserver) {
+            logger.info(request.getKey() + "=" + request.getVal());
+            Random random = new Random();
+            int workerId = random.nextInt(master.getWorkerConf().size());
+            WriteResp resp = master.sendWriteReq(workerId, request);
+            responseObserver.onNext(resp);
             responseObserver.onCompleted();
         }
     }

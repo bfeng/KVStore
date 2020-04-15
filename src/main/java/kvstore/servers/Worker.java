@@ -3,14 +3,21 @@ package kvstore.servers;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
+import io.grpc.stub.StreamObserver;
+import kvstore.common.WriteReq;
+import kvstore.common.WriteResp;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
+    private Map<String, String> dataStore = new ConcurrentHashMap<>();
+
 
     public Worker(String configuration, int workerId) throws IOException {
         super(configuration);
@@ -58,6 +65,24 @@ public class Worker extends ServerBase {
         channel.shutdown();
     }
 
+    private void bcastWriteReq(WriteReq req) {
+        for (int i = 0; i < getWorkerConf().size(); i++) {
+            ServerConfiguration sc = getWorkerConf().get(i);
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port)
+                    .usePlaintext()
+                    .build();
+            WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
+            WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder()
+                    .setSender(workerId)
+                    .setReceiver(i)
+                    .setRequest(req)
+                    .build();
+            BcastResp resp = stub.handleBcastWrite(writeReqBcast);
+            logger.info(String.format("RPC %d: Worker[%d] has done this replica", resp.getStatus(), resp.getReceiver()));
+            channel.shutdown();
+        }
+    }
+
     /**
      * Main launches the server from the command line.
      */
@@ -72,6 +97,34 @@ public class Worker extends ServerBase {
 
         WorkerService(Worker worker) {
             this.worker = worker;
+        }
+
+        @Override
+        public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
+            logger.info(String.format("Worker[%d]: write key=%s, val=%s", worker.workerId, request.getKey(), request.getVal()));
+            worker.dataStore.put(request.getKey(), request.getVal());
+            worker.bcastWriteReq(request);
+            WriteResp resp = WriteResp.newBuilder()
+                    .setReceiver(worker.workerId)
+                    .setStatus(0)
+                    .build();
+            responseObserver.onNext(resp);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
+            logger.info(String.format("Worker[%d]: replica received from Worker[%d] write key=%s, val=%s",
+                    worker.workerId, request.getSender(), request.getRequest().getKey(), request.getRequest().getVal()));
+            if (request.getSender() != worker.workerId) {
+                worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
+            }
+            BcastResp resp = BcastResp.newBuilder()
+                    .setReceiver(worker.workerId)
+                    .setStatus(0)
+                    .build();
+            responseObserver.onNext(resp);
+            responseObserver.onCompleted();
         }
     }
 }

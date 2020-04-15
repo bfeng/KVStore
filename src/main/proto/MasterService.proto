@@ -1,5 +1,6 @@
 syntax = "proto3";
 option java_multiple_files = true;
+import "Common.proto";
 
 package kvstore.servers;
 
@@ -14,4 +15,5 @@ message MasterResponse {
 
 service MasterService {
     rpc reportStatus (WorkerStatus) returns (MasterResponse);
+    rpc writeMsg (kvstore.common.WriteReq) returns (kvstore.common.WriteResp);
 }
