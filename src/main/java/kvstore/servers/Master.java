@@ -123,21 +123,4 @@ public class Master extends ServerBase {
             responseObserver.onCompleted();
         }
     }
-
-    private static class ClientService extends ClientServiceGrpc.ClientServiceImplBase {
-        private final Master master;
-
-        ClientService(Master master) {
-            this.master = master;
-        }
-
-        @Override
-        public void sendRequest(ClientMsg request, StreamObserver<ServerResponse> responseObserver) {
-            int clientId = request.getClientId();
-            logger.info(String.format("receive request from client %d", clientId));
-            ServerResponse response = ServerResponse.newBuilder().setStatus(0).build();
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        }
-    }
 }

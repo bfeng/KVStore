@@ -5,9 +5,6 @@ import io.grpc.ManagedChannelBuilder;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.servers.MasterServiceGrpc;
-import kvstore.servers.ClientServiceGrpc;
-import kvstore.servers.ClientMsg;
-import kvstore.servers.ServerResponse;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,17 +16,16 @@ import java.util.logging.Logger;
 public class KVClient {
     private static final Logger logger = Logger.getLogger(KVClient.class.getName());
     private int clientId;
-    private int port;
-    private String ip;
     private int serverPort;
     private String serverIp;
-    private List<ClientQuest> reqList;
+    private List<ReqContent> reqList;
 
     public KVClient (String configuration, int clientId) {
         this.clientId = clientId;
         reqList = new ArrayList<>();
         try{
           parse(configuration);
+          logger.info("configure server: "+ serverIp + ":"+Integer.toString(serverPort));
         } catch (IOException e){
           //
         }
@@ -40,16 +36,12 @@ public class KVClient {
         for (String line : allLines) {
             String[] conf = line.split(":");
             switch (conf[0]) {
-                case "client":
-                    this.ip = conf[1];
-                    this.port = Integer.parseInt(conf[2]);
-                    break;
                 case "server":
                     this.serverIp = conf[1];
                     this.serverPort = Integer.parseInt(conf[2]);
                     break;
                 case "request":
-                    reqList.add(new ClientQuest(conf[1], conf[2], conf[3], conf[4]));
+                    reqList.add(new ReqContent(conf[1], conf[2], conf[3], conf[4]));
                     break;
                 default:
                     System.err.println("Unknown conf: " + line);
@@ -57,22 +49,63 @@ public class KVClient {
         }
     }
 
-    static class ClientQuest {
+    static class ReqContent {
         public int action;
-        public String key; // ip can be hostname as well
+        public String key;
         public String value;
         public int option;
 
-        public ClientQuest (String action, String key, String value, String option){
-            this.action = Integer.parseInt(action);
+        public ReqContent (String action, String key, String value, String option){
+            switch (action) {
+                case "GET":
+                    this.action = 0;
+                    break;
+                case "SET":
+                    this.action = 1;
+                    break;
+                default:
+                    System.err.println("Undefined operation: " + action);
+            }
             this.key = key;
             this.value = value;
-            this.option = Integer.parseInt(option);
+
+            switch (option) {
+                case "Sequential":
+                    this.option = 0;
+                    break;
+                case "Causal":
+                    this.option = 1;
+                    break;
+                case "Eventual":
+                    this.option = 2;
+                    break;
+                case "Linear":
+                    this.option = 3;
+                    break;
+                default:
+                    System.err.println("Undefined consistency option: " + option);
+            }
+        }
+
+        public int getAct() {
+            return this.action;
+        }
+
+        public String getKey() {
+            return this.key;
+        }
+
+        public String getVal() {
+            return this.value;
+        }
+
+        public int getOpt() {
+            return this.option;
         }
     }
 
     void write(String key, String value) {
-        ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 12345)
+        ManagedChannel channel = ManagedChannelBuilder.forAddress(serverIp, serverPort)
                 .usePlaintext()
                 .build();
         MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(channel);
@@ -85,36 +118,13 @@ public class KVClient {
         channel.shutdown();
     }
 
-    private void sendMsgtoServer(ClientQuest req) {
-        ManagedChannel channel = ManagedChannelBuilder.forAddress(serverIp, serverPort)
-                .usePlaintext()
-                .build();
-        ClientServiceGrpc.ClientServiceBlockingStub stub = ClientServiceGrpc.newBlockingStub(channel);
-        ClientMsg request = ClientMsg.newBuilder()
-                .setClientId(clientId)
-                .setAction(req.action)
-                .setKey(req.key)
-                .setValue(req.value)
-                .setOption(req.option)
-                .build();
-        ServerResponse response = stub.sendRequest(request);
-
-        logger.info(String.format("RPC: %d: Client[%d] send request", response.getStatus(), clientId));
-        channel.shutdown();
-    }
-
     public static void main(String[] args) {
         KVClient client= new KVClient(args[0], Integer.parseInt(args[1]));
-        //logger.info(String.format("configuration complete"));
-        for (ClientQuest req : client.reqList) {
-            client.sendMsgtoServer(req);
+        for (ReqContent req : client.reqList) {
+            logger.info(Integer.toString(req.getAct())+":"+req.getKey()+":"+req.getVal()+":"+Integer.toString(req.getOpt()));
+            if (req.getAct() == 1) {
+                client.write(req.getKey(), req.getVal());
+            }
         }
     }
-
-    /**
-    public static void main(String[] args) {
-        KVClient client = new KVClient();
-        client.write("hello", "world");
-        client.write("Bye", "bye");
-    }**/
 }
