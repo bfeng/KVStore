@@ -64,7 +64,7 @@ public class Master extends ServerBase {
     }
 
     /**
-     * Write the request from the worker and send an acknowledgement 
+     * Write the request from the worker and send an acknowledgement
      * by calling the handleWrite() method on the worker server
      */
     private WriteResp sendWriteReq(int workerId, WriteReq req) {
@@ -120,6 +120,23 @@ public class Master extends ServerBase {
             int workerId = random.nextInt(master.getWorkerConf().size());
             WriteResp resp = master.sendWriteReq(workerId, request);
             responseObserver.onNext(resp);
+            responseObserver.onCompleted();
+        }
+    }
+
+    private static class ClientService extends ClientServiceGrpc.ClientServiceImplBase {
+        private final Master master;
+
+        ClientService(Master master) {
+            this.master = master;
+        }
+
+        @Override
+        public void sendRequest(ClientMsg request, StreamObserver<ServerResponse> responseObserver) {
+            int clientId = request.getClientId();
+            logger.info(String.format("receive request from client %d", clientId));
+            ServerResponse response = ServerResponse.newBuilder().setStatus(0).build();
+            responseObserver.onNext(response);
             responseObserver.onCompleted();
         }
     }
