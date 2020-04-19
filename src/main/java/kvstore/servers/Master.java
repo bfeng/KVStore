@@ -73,41 +73,13 @@ public class Master extends ServerBase {
      * @Todo: channel timeout shoule be customized
      * @Todo: The returned status is only a mock return
      */
-    private WriteResp sendWriteReq(int workerId, WriteReq req) throws InterruptedException {
-        final CountDownLatch finishLatch = new CountDownLatch(1); /* Used to synchronize the asynchronous call */
+    private WriteResp sendWriteReq(int workerId, WriteReq req) {
         ManagedChannel channel = ManagedChannelBuilder
                 .forAddress(getWorkerConf().get(workerId).ip, getWorkerConf().get(workerId).port).usePlaintext()
                 .build();
-
-        /* Build an asynchronous channel */
-        WorkerServiceGrpc.WorkerServiceStub asyncStub = WorkerServiceGrpc.newStub(channel);
-        asyncStub.handleWrite(req, new StreamObserver<WriteResp>() {
-
-            @Override
-            public void onNext(WriteResp resp) {
-                logger.info(String.format("RPC %d: Worker[%d] has done this request", resp.getStatus(),
-                        resp.getReceiver()));
-
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                finishLatch.countDown();
-
-            }
-
-            @Override
-            public void onCompleted() {
-                logger.info("Finish sendWriteReq");
-                finishLatch.countDown();
-            }
-        });
-
-        /* Proceed when the request complete */
-        if (!finishLatch.await(1, TimeUnit.MINUTES)) {
-            logger.warning("can not finish within 1 minutes");
-        }
-        WriteResp resp = WriteResp.newBuilder().setStatus(0).build();
+        WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
+        WriteResp resp = stub.handleWrite(req);
+        channel.shutdown();
         return resp;
     }
 
@@ -157,18 +129,10 @@ public class Master extends ServerBase {
         public void writeMsg(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             logger.info(request.getKey() + "=" + request.getVal());
             Random random = new Random();
-
             /* Distribute the message to a random known worker */
             int workerId = random.nextInt(master.getWorkerConf().size());
-
-            /* An asynchonous call to distribute the messages */
-            WriteResp resp = WriteResp.newBuilder().setStatus(-1).build();
-            try {
-                resp = master.sendWriteReq(workerId, request);
-            } catch (InterruptedException e) {
-                logger.warning("WriteMsg Interrupted");
-            }
-
+            /* A synchonous call to distribute the messages */
+            WriteResp resp = master.sendWriteReq(workerId, request);
             /* Return */
             responseObserver.onNext(resp);
             responseObserver.onCompleted();
