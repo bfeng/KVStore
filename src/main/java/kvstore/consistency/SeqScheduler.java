@@ -16,20 +16,19 @@ public class SeqScheduler implements Runnable {
     }
 
     /**
-     * @TODO: Take next when the current thread finished
-     * @TODO: When to release the next?
+     * Grab a task from the priority queue
      */
     @Override
     public void run() {
         while (true) {
             try {
+                /* Wait a random duration to let buffer grow */
                 Random rand = new Random();
                 Thread.sleep(rand.nextInt(3) * 1000);
             } catch (InterruptedException e1) {
-                // TODO Auto-generated catch block
                 e1.printStackTrace();
             }
-            // @TODO: What if it didn't acquire when take?
+            
             taskEntry t = new taskEntry();
             try {
                 t = this.tasksQ.take();

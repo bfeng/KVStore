@@ -140,8 +140,6 @@ public class Worker extends ServerBase {
         /**
          * Return the acknowledgement imeediately and enqueue the received write
          * operation
-         * 
-         * @TODO: To add the logic time updates
          */
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
@@ -151,15 +149,16 @@ public class Worker extends ServerBase {
                     try {
                         t = worker.sche.addTask();
                         t.sem.acquire(); /* Block the current thread and being subject to scheduling */
-                        logger.info(String.format("Update clock: Self %d vs Sender %d", logicTime, request.getSenderClock()));
-                        logicTime = Math.max(request.getSenderClock(), logicTime); /* Compare and update logic time with the sender */
+                        logger.info(String.format("Update clock: Self %d vs Sender %d", logicTime,
+                                request.getSenderClock()));
+                        logicTime = Math.max(request.getSenderClock(),
+                                logicTime); /* Compare and update logic time with the sender */
                         t.logicTime = ++logicTime; /* Update for the write event */
                         t.id = worker.workerId;
                     } catch (InterruptedException e) {
                         logger.info(e.getMessage());
                     }
 
-                    
                     worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
                     logger.info(String.format(
                             "Worker[%d][%d]: replica received from Worker[%d], <<<<<<<<<write key=%s, val=%s>>>>>>>>>",
@@ -170,10 +169,7 @@ public class Worker extends ServerBase {
                     t.finisLatch.countDown();
                 }
             };
-            /*
-             * @TODO: What if return before adding the new taks entry? the clocl will be
-             * messed up
-             */
+
             receivedWrite.start();
 
             /* Return */
