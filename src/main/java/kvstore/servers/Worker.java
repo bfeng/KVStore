@@ -68,18 +68,23 @@ public class Worker extends ServerBase {
 
     /**
      * Propagate the write rquest to other workers
+     * 
+     * @TODO: What if acks are not return?
      */
-    private void bcastWriteReq(WriteReq req) {
+    private void bcastWriteReq(WriteReq req, int logicTime) {
         for (int i = 0; i < getWorkerConf().size(); i++) {
-            ServerConfiguration sc = getWorkerConf().get(i);
-            ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
-            WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
-            WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
-                    .build();
-            BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-            // logger.info(
-            //         String.format("RPC %d: Worker[%d] has done this replica", resp.getStatus(), resp.getReceiver()));
-            channel.shutdown();
+            if (i != workerId) { /* Do not send to the worker self */
+                ServerConfiguration sc = getWorkerConf().get(i);
+                ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
+                WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
+                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
+                        .setRequest(req).setSenderClock(logicTime).build();
+                BcastResp resp = stub.handleBcastWrite(writeReqBcast);
+                // logger.info(
+                // String.format("RPC %d: Worker[%d] has done this replica", resp.getStatus(),
+                // resp.getReceiver()));
+                channel.shutdown();
+            }
         }
     }
 
@@ -103,16 +108,11 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
-            logicTime++; /* Increase the logic time by 1 */
-
-            int tmpTime = 0;
+            logicTime++; /* Update for the write event */
+            int tmpTime = logicTime; /* Save the current logic time for logging */
+            taskEntry t = new taskEntry(-1, -1);
             try {
-                /* Random logic time for test */
-                Random rand = new Random();
-                int e = rand.nextInt(9);
-                tmpTime = e;
-
-                taskEntry t = worker.sche.addTask(e, worker.workerId);
+                t = worker.sche.addTask(logicTime, worker.workerId);
                 t.sem.acquire();
 
             } catch (InterruptedException e) {
@@ -120,11 +120,16 @@ public class Worker extends ServerBase {
             }
 
             /* Propagate the write operations */
-            worker.bcastWriteReq(request);
+            logicTime++; /* Update for the brodcast */
+            worker.bcastWriteReq(request, logicTime);
+
             /* Write to the data store */
             worker.dataStore.put(request.getKey(), request.getVal());
-            logger.info(String.format("<<<<<<<<<<<Worker[%d], Clock[%d]: write , key=%s,val=%s>>>>>>>>>>>",
-                    worker.workerId, tmpTime, request.getKey(), request.getVal()));
+            logger.info(String.format("<<<<<<<<<<<Worker[%d][%d]: write , key=%s,val=%s>>>>>>>>>>>", worker.workerId,
+                    tmpTime, request.getKey(), request.getVal()));
+
+            /* Release lock and coundown to let scheduler continue */
+            t.finisLatch.countDown();
 
             /* Construbt return message to the master */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -132,27 +137,46 @@ public class Worker extends ServerBase {
             responseObserver.onCompleted();
         }
 
+        /**
+         * Return the acknowledgement imeediately and enqueue the received write
+         * operation
+         * 
+         * @TODO: To add the logic time updates
+         */
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            int tmpTime = 0;
-            try {
-                logicTime++;
-                tmpTime = logicTime;
-                taskEntry t = worker.sche.addTask(logicTime, worker.workerId);
-                t.sem.acquire();
+            logicTime = Math.max(request.getSenderClock(), logicTime); /* Update logic time */
+            Thread receivedWrite = new Thread() {
+                public void run() {
+                    logicTime++; /*  */
+                    int tmpTime = logicTime;
+                    taskEntry t = new taskEntry(-1, -1);
+                    try {
+                        t = worker.sche.addTask(logicTime, worker.workerId);
+                        t.sem.acquire();
 
-            } catch (InterruptedException e) {
-                logger.info(e.getMessage());
-            }
+                    } catch (InterruptedException e) {
+                        logger.info(e.getMessage());
+                    }
 
-            logger.info(String.format("Worker[%d]: replica received from Worker[%d], write key=%s, val=%s",
-                    worker.workerId, request.getSender(), request.getRequest().getKey(),
-                    request.getRequest().getVal()));
+                    logicTime++; /* Increase the logic time by 1 when deliver the write operation */
+                    worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
+                    logger.info(String.format(
+                            "Worker[%d]: replica received from Worker[%d], <<<<<<<<<write key=%s, val=%s>>>>>>>>>",
+                            worker.workerId, request.getSender(), request.getRequest().getKey(),
+                            request.getRequest().getVal()));
 
-            if (request.getSender() != worker.workerId) {
-                worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
-            }
+                    /* Release lock and coundown to let scheduler continue */
+                    t.finisLatch.countDown();
+                }
+            };
+            /*
+             * @TODO: What if return before adding the new taks entry? the clocl will be
+             * messed up
+             */
+            receivedWrite.start();
 
+            /* Return */
             BcastResp resp = BcastResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
             responseObserver.onNext(resp);
             responseObserver.onCompleted();

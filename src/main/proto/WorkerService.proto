@@ -8,6 +8,7 @@ message WriteReqBcast {
     int32 sender = 1;
     int32 receiver = 2;
     kvstore.common.WriteReq request = 3;
+    int32 senderClock = 4;
 }
 
 message BcastResp {

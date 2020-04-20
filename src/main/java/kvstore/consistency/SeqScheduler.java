@@ -2,6 +2,7 @@ package kvstore.consistency;
 
 import java.util.Comparator;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.logging.Logger;
@@ -9,24 +10,26 @@ import java.util.logging.Logger;
 public class SeqScheduler implements Runnable {
     private PriorityBlockingQueue<taskEntry> tasksQ;
     private static final Logger logger = Logger.getLogger(SeqScheduler.class.getName());
-    private Semaphore sem;
 
     public SeqScheduler(int initSize) {
         this.tasksQ = new PriorityBlockingQueue<taskEntry>(16, new sortByTime());
-        this.sem = new Semaphore(1);
     }
 
+    /**
+     * @TODO: Take next when the current thread finished
+     * @TODO: When to release the next?
+     */
     @Override
     public void run() {
         while (true) {
-            Random rand = new Random();
             try {
+                Random rand = new Random();
                 Thread.sleep(rand.nextInt(3) * 1000);
             } catch (InterruptedException e1) {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
             }
-
+            // @TODO: What if it didn't acquire when take?
             taskEntry t = new taskEntry(-1, -1);
             try {
                 t = this.tasksQ.take();
@@ -34,8 +37,20 @@ public class SeqScheduler implements Runnable {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
-            logger.info(String.format("New operation %d, %d", t.logicTime, t.id));
+
+            /* Wait untill the semaphore is acquired */
+            while (!t.sem.hasQueuedThreads()) {
+            }
+            logger.info(String.format("New write operation [%d][%d]", t.id, t.logicTime));
             t.sem.release();
+
+            /* Proceed untill the current task is finished */
+            try {
+                t.finisLatch.await();
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
         }
     }
 
@@ -49,11 +64,13 @@ public class SeqScheduler implements Runnable {
         public int logicTime;
         public int id;
         public Semaphore sem;
+        public final CountDownLatch finisLatch;
 
         public taskEntry(int logicTime, int id) {
             this.logicTime = logicTime;
             this.id = id;
-            sem = new Semaphore(0);
+            this.sem = new Semaphore(0);
+            this.finisLatch = new CountDownLatch(1);
         }
     }
 
