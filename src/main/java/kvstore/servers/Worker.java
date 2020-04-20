@@ -108,13 +108,13 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
-            logicTime++; /* Update for the write event */
-            int tmpTime = logicTime; /* Save the current logic time for logging */
-            taskEntry t = new taskEntry(-1, -1);
+            taskEntry t = new taskEntry();
             try {
-                t = worker.sche.addTask(logicTime, worker.workerId);
-                t.sem.acquire();
+                t = worker.sche.addTask();
+                t.sem.acquire(); /* Block the current thread and being subject to scheduling */
 
+                t.logicTime = ++logicTime; /* Update for the write event */
+                t.id = worker.workerId;
             } catch (InterruptedException e) {
                 logger.info(e.getMessage());
             }
@@ -126,7 +126,7 @@ public class Worker extends ServerBase {
             /* Write to the data store */
             worker.dataStore.put(request.getKey(), request.getVal());
             logger.info(String.format("<<<<<<<<<<<Worker[%d][%d]: write , key=%s,val=%s>>>>>>>>>>>", worker.workerId,
-                    tmpTime, request.getKey(), request.getVal()));
+                    t.logicTime, request.getKey(), request.getVal()));
 
             /* Release lock and coundown to let scheduler continue */
             t.finisLatch.countDown();
@@ -145,25 +145,25 @@ public class Worker extends ServerBase {
          */
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            logicTime = Math.max(request.getSenderClock(), logicTime); /* Update logic time */
             Thread receivedWrite = new Thread() {
                 public void run() {
-                    logicTime++; /*  */
-                    int tmpTime = logicTime;
-                    taskEntry t = new taskEntry(-1, -1);
+                    taskEntry t = new taskEntry();
                     try {
-                        t = worker.sche.addTask(logicTime, worker.workerId);
-                        t.sem.acquire();
-
+                        t = worker.sche.addTask();
+                        t.sem.acquire(); /* Block the current thread and being subject to scheduling */
+                        logger.info(String.format("Update clock: Self %d vs Sender %d", logicTime, request.getSenderClock()));
+                        logicTime = Math.max(request.getSenderClock(), logicTime); /* Compare and update logic time with the sender */
+                        t.logicTime = ++logicTime; /* Update for the write event */
+                        t.id = worker.workerId;
                     } catch (InterruptedException e) {
                         logger.info(e.getMessage());
                     }
 
-                    logicTime++; /* Increase the logic time by 1 when deliver the write operation */
+                    
                     worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
                     logger.info(String.format(
-                            "Worker[%d]: replica received from Worker[%d], <<<<<<<<<write key=%s, val=%s>>>>>>>>>",
-                            worker.workerId, request.getSender(), request.getRequest().getKey(),
+                            "Worker[%d][%d]: replica received from Worker[%d], <<<<<<<<<write key=%s, val=%s>>>>>>>>>",
+                            worker.workerId, t.logicTime, request.getSender(), request.getRequest().getKey(),
                             request.getRequest().getVal()));
 
                     /* Release lock and coundown to let scheduler continue */

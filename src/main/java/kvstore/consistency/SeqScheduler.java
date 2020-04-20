@@ -30,7 +30,7 @@ public class SeqScheduler implements Runnable {
                 e1.printStackTrace();
             }
             // @TODO: What if it didn't acquire when take?
-            taskEntry t = new taskEntry(-1, -1);
+            taskEntry t = new taskEntry();
             try {
                 t = this.tasksQ.take();
             } catch (InterruptedException e) {
@@ -41,7 +41,7 @@ public class SeqScheduler implements Runnable {
             /* Wait untill the semaphore is acquired */
             while (!t.sem.hasQueuedThreads()) {
             }
-            logger.info(String.format("New write operation [%d][%d]", t.id, t.logicTime));
+            logger.info(String.format("New write operation"));
             t.sem.release();
 
             /* Proceed untill the current task is finished */
@@ -54,8 +54,8 @@ public class SeqScheduler implements Runnable {
         }
     }
 
-    public taskEntry addTask(int logicTime, int id) throws InterruptedException {
-        taskEntry newTask = new taskEntry(logicTime, id);
+    public taskEntry addTask() throws InterruptedException {
+        taskEntry newTask = new taskEntry();
         this.tasksQ.put(newTask);
         return newTask;
     }
@@ -66,9 +66,9 @@ public class SeqScheduler implements Runnable {
         public Semaphore sem;
         public final CountDownLatch finisLatch;
 
-        public taskEntry(int logicTime, int id) {
-            this.logicTime = logicTime;
-            this.id = id;
+        public taskEntry() {
+            this.logicTime = -1;
+            this.id = -1;
             this.sem = new Semaphore(0);
             this.finisLatch = new CountDownLatch(1);
         }
