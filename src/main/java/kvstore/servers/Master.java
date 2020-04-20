@@ -73,12 +73,13 @@ public class Master extends ServerBase {
      * @Todo: channel timeout shoule be customized
      * @Todo: The returned status is only a mock return
      */
-    private WriteResp sendWriteReq(int workerId, WriteReq req) {
+    private WriteResp sendWriteReq(int workerId, WriteReq req) throws InterruptedException {
         ManagedChannel channel = ManagedChannelBuilder
                 .forAddress(getWorkerConf().get(workerId).ip, getWorkerConf().get(workerId).port).usePlaintext()
                 .build();
-        WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
+        WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel).withDeadlineAfter(1, TimeUnit.MINUTES);
         WriteResp resp = stub.handleWrite(req);
+
         channel.shutdown();
         return resp;
     }
@@ -131,8 +132,13 @@ public class Master extends ServerBase {
             Random random = new Random();
             /* Distribute the message to a random known worker */
             int workerId = random.nextInt(master.getWorkerConf().size());
+            
             /* A synchonous call to distribute the messages */
-            WriteResp resp = master.sendWriteReq(workerId, request);
+            WriteResp resp = WriteResp.newBuilder().setStatus(-1).build();
+            try {
+                resp = master.sendWriteReq(workerId, request);
+            } catch (InterruptedException e) {
+            }
             /* Return */
             responseObserver.onNext(resp);
             responseObserver.onCompleted();

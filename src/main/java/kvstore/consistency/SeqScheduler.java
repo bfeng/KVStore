@@ -2,65 +2,58 @@ package kvstore.consistency;
 
 import java.util.Comparator;
 import java.util.Random;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.logging.Logger;
 
-public class SeqScheduler {
+public class SeqScheduler implements Runnable {
     private PriorityBlockingQueue<taskEntry> tasksQ;
     private static final Logger logger = Logger.getLogger(SeqScheduler.class.getName());
+    private Semaphore sem;
 
     public SeqScheduler(int initSize) {
         this.tasksQ = new PriorityBlockingQueue<taskEntry>(16, new sortByTime());
+        this.sem = new Semaphore(1);
     }
 
-    public void seqWait(int logicTime, int id) throws InterruptedException {
-        taskEntry task = new taskEntry(logicTime, id);
-        this.tasksQ.put(task);
+    @Override
+    public void run() {
+        while (true) {
+            Random rand = new Random();
+            try {
+                Thread.sleep(rand.nextInt(3) * 1000);
+            } catch (InterruptedException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+            }
 
-        Random rand = new Random();
-
-        int e = rand.nextInt(1);
-        Thread.sleep(e * 1000);
-
-        taskEntry topTask = this.tasksQ.peek();
-
-        /* If the current message is not the at the topmost */
-        if (topTask.logicTime != logicTime || topTask.id != id) {
-            logger.info("{{{{{{{{{{{{{" + "Block " + logicTime + "," + id + "}}}}}}}}}}}}}");
-            task.taskWait();
-            return;
+            taskEntry t = new taskEntry(-1, -1);
+            try {
+                t = this.tasksQ.take();
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            logger.info(String.format("New operation %d, %d", t.logicTime, t.id));
+            t.sem.release();
         }
-        this.tasksQ.take();
-        return;
     }
 
-    public void seqResume() throws InterruptedException {
-        if (this.tasksQ.isEmpty())
-            return;
-        // Thread.sleep(1000);
-        taskEntry topTask = this.tasksQ.take();
-        logger.info("<<<<<<<<<" + "Trying to Resume " + topTask.logicTime + "," + topTask.id + ">>>>>>>>>");
-        topTask.taskResume();
+    public taskEntry addTask(int logicTime, int id) throws InterruptedException {
+        taskEntry newTask = new taskEntry(logicTime, id);
+        this.tasksQ.put(newTask);
+        return newTask;
     }
 
     public static class taskEntry {
         public int logicTime;
         public int id;
-        private ArrayBlockingQueue<Integer> q;
+        public Semaphore sem;
 
         public taskEntry(int logicTime, int id) {
             this.logicTime = logicTime;
             this.id = id;
-            q = new ArrayBlockingQueue<Integer>(1);
-        }
-
-        public void taskWait() throws InterruptedException {
-            q.take();
-        }
-
-        public void taskResume() throws InterruptedException {
-            q.put(1);
+            sem = new Semaphore(0);
         }
     }
 
@@ -76,4 +69,5 @@ public class SeqScheduler {
         }
 
     }
+
 }

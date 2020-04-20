@@ -1,5 +1,11 @@
 package kvstore.servers;
 
+import java.io.IOException;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
+
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
@@ -7,22 +13,20 @@ import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.consistency.SeqScheduler;
-
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
+import kvstore.consistency.SeqScheduler.taskEntry;
 
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
     private Map<String, String> dataStore = new ConcurrentHashMap<>();
+    private SeqScheduler sche;
 
     public Worker(String configuration, int workerId) throws IOException {
         super(configuration);
         this.workerId = workerId;
         this.port = getWorkerConf().get(workerId).port;
+        this.sche = new SeqScheduler(16);
     }
 
     @Override
@@ -30,6 +34,10 @@ public class Worker extends ServerBase {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port).addService(new WorkerService(this)).build().start();
         logger.info(String.format("Worker[%d] started, listening on %d", workerId, port));
+        /* Start the scheduler */
+        Thread scheThread = new Thread(this.sche);
+        scheThread.start();
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             // Use stderr here since the logger may have been reset by its JVM shutdown
             // hook.
@@ -69,8 +77,8 @@ public class Worker extends ServerBase {
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
                     .build();
             BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-            logger.info(
-                    String.format("RPC %d: Worker[%d] has done this replica", resp.getStatus(), resp.getReceiver()));
+            // logger.info(
+            //         String.format("RPC %d: Worker[%d] has done this replica", resp.getStatus(), resp.getReceiver()));
             channel.shutdown();
         }
     }
@@ -87,42 +95,36 @@ public class Worker extends ServerBase {
     static class WorkerService extends WorkerServiceGrpc.WorkerServiceImplBase {
         private final Worker worker;
         private int logicTime;
-        private SeqScheduler sche;
 
         WorkerService(Worker worker) {
             this.worker = worker;
             this.logicTime = 0;
-            /*
-             * Initiating the scheduler with the initia capacity 16 which will automaticlly
-             * grow
-             */
-            sche = new SeqScheduler(16);
         }
 
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             logicTime++; /* Increase the logic time by 1 */
 
-            int tmpTime = logicTime;
+            int tmpTime = 0;
             try {
-                this.sche.seqWait(this.logicTime, worker.workerId); /* Wait */
+                /* Random logic time for test */
+                Random rand = new Random();
+                int e = rand.nextInt(9);
+                tmpTime = e;
+
+                taskEntry t = worker.sche.addTask(e, worker.workerId);
+                t.sem.acquire();
+
             } catch (InterruptedException e) {
                 logger.info(e.getMessage());
             }
 
-            /* Log message when writing to the data store */
-            logger.info(String.format("<<<<<<<<<<<Worker[%d], Clock[%d]: write , key=%s, val=%s>>>>>>>>>>>",
-                    worker.workerId, tmpTime, request.getKey(), request.getVal()));
-
+            /* Propagate the write operations */
+            worker.bcastWriteReq(request);
             /* Write to the data store */
             worker.dataStore.put(request.getKey(), request.getVal());
-
-            /* Resume the next top write rquest */
-            try {
-                this.sche.seqResume();
-            } catch (InterruptedException e) {
-                logger.info(String.format("sqResume Failed %s", e.getMessage()));
-            }
+            logger.info(String.format("<<<<<<<<<<<Worker[%d], Clock[%d]: write , key=%s,val=%s>>>>>>>>>>>",
+                    worker.workerId, tmpTime, request.getKey(), request.getVal()));
 
             /* Construbt return message to the master */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -132,12 +134,25 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            logger.info(
-                    String.format("Worker[%d]: replica received from Worker[%d] write key=%s, val=%s", worker.workerId,
-                            request.getSender(), request.getRequest().getKey(), request.getRequest().getVal()));
+            int tmpTime = 0;
+            try {
+                logicTime++;
+                tmpTime = logicTime;
+                taskEntry t = worker.sche.addTask(logicTime, worker.workerId);
+                t.sem.acquire();
+
+            } catch (InterruptedException e) {
+                logger.info(e.getMessage());
+            }
+
+            logger.info(String.format("Worker[%d]: replica received from Worker[%d], write key=%s, val=%s",
+                    worker.workerId, request.getSender(), request.getRequest().getKey(),
+                    request.getRequest().getVal()));
+
             if (request.getSender() != worker.workerId) {
                 worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
             }
+
             BcastResp resp = BcastResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
             responseObserver.onNext(resp);
             responseObserver.onCompleted();
