@@ -12,21 +12,21 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
-import kvstore.consistency.SeqScheduler;
-import kvstore.consistency.SeqScheduler.taskEntry;
+import kvstore.consistency.Scheduler;
+import kvstore.consistency.Scheduler.taskEntry;
 
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
     private Map<String, String> dataStore = new ConcurrentHashMap<>();
-    private SeqScheduler sche;
+    private Scheduler sche;
 
     public Worker(String configuration, int workerId) throws IOException {
         super(configuration);
         this.workerId = workerId;
         this.port = getWorkerConf().get(workerId).port;
-        this.sche = new SeqScheduler(16);
+        this.sche = new Scheduler(16);
     }
 
     @Override
@@ -34,6 +34,7 @@ public class Worker extends ServerBase {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port).addService(new WorkerService(this)).build().start();
         logger.info(String.format("Worker[%d] started, listening on %d", workerId, port));
+        
         /* Start the scheduler */
         Thread scheThread = new Thread(this.sche);
         scheThread.start();
@@ -68,8 +69,7 @@ public class Worker extends ServerBase {
 
     /**
      * Propagate the write rquest to other workers
-     * 
-     * @TODO: What if acks are not return?
+     * @TODO: What if acks are not return
      */
     private void bcastWriteReq(WriteReq req, int logicTime) {
         for (int i = 0; i < getWorkerConf().size(); i++) {
@@ -99,7 +99,7 @@ public class Worker extends ServerBase {
 
     static class WorkerService extends WorkerServiceGrpc.WorkerServiceImplBase {
         private final Worker worker;
-        private int logicTime;
+        private int logicTime; /* A server would maintain a logic clock */
 
         WorkerService(Worker worker) {
             this.worker = worker;
@@ -128,7 +128,7 @@ public class Worker extends ServerBase {
             logger.info(String.format("<<<<<<<<<<<Worker[%d][%d]: write , key=%s,val=%s>>>>>>>>>>>", worker.workerId,
                     t.logicTime, request.getKey(), request.getVal()));
 
-            /* Release lock and coundown to let scheduler continue */
+            /* Countdown to let scheduler continue */
             t.finisLatch.countDown();
 
             /* Construbt return message to the master */
@@ -138,7 +138,7 @@ public class Worker extends ServerBase {
         }
 
         /**
-         * Return the acknowledgement imeediately and enqueue the received write
+         * Return the acknowledgement immediately and enqueue the received write
          * operation
          */
         @Override
@@ -158,7 +158,8 @@ public class Worker extends ServerBase {
                     } catch (InterruptedException e) {
                         logger.info(e.getMessage());
                     }
-
+                    
+                    /* Write to the data store */
                     worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
                     logger.info(String.format(
                             "Worker[%d][%d]: replica received from Worker[%d], <<<<<<<<<write key=%s, val=%s>>>>>>>>>",

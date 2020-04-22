@@ -7,16 +7,24 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.logging.Logger;
 
-public class SeqScheduler implements Runnable {
+/**
+ * The scheduler block all rpc calls that are then enqueued into a priority
+ * queue. The queue maintains the taskEntry instance which has a semaphore, i.e,
+ * the priority queue maitains a queue of semaphores. A seperated thread keep
+ * taking a task from the priority queue and resume. Proceed upon the task is
+ * finished
+ */
+public class Scheduler implements Runnable {
     private PriorityBlockingQueue<taskEntry> tasksQ;
-    private static final Logger logger = Logger.getLogger(SeqScheduler.class.getName());
+    private static final Logger logger = Logger.getLogger(Scheduler.class.getName());
 
-    public SeqScheduler(int initSize) {
+    public Scheduler(int initSize) {
+        /* The initial capacity is set to 16 */
         this.tasksQ = new PriorityBlockingQueue<taskEntry>(16, new sortByTime());
     }
 
     /**
-     * Grab a task from the priority queue
+     * Grab a task from the priority queue and release its lock
      */
     @Override
     public void run() {
@@ -28,16 +36,15 @@ public class SeqScheduler implements Runnable {
             } catch (InterruptedException e1) {
                 e1.printStackTrace();
             }
-            
+            /* Grab a task from the queue. Blocked when no item available */
             taskEntry t = new taskEntry();
             try {
                 t = this.tasksQ.take();
             } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
 
-            /* Wait untill the semaphore is acquired */
+            /* Wait untill the thread is acquired */
             while (!t.sem.hasQueuedThreads()) {
             }
             logger.info(String.format("New write operation"));
@@ -73,6 +80,9 @@ public class SeqScheduler implements Runnable {
         }
     }
 
+    /**
+     * A comparator for implementing the total order, i.e., the scalar time
+     */
     public static class sortByTime implements Comparator<taskEntry> {
 
         @Override
