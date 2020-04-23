@@ -164,7 +164,9 @@ public class Worker extends ServerBase {
 
             /* Updata the acks number for the specified message */
             globalClock.incrementAndGet(); /* Update the clock for having updated the acknowledgement */
-            Boolean[] ackArr = worker.sche.updateAck(request);
+            
+            /* The below is for debugging */
+            // Boolean[] ackArr = worker.sche.updateAck(request);
 
             // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d] \n Current ack array: %s >>>",
             //         worker.workerId, request.getClock(), request.getId(), request.getSender(),

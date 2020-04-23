@@ -153,6 +153,7 @@ public class KVClient {
         if (!finishLatch.await(1, TimeUnit.MINUTES)) {
             logger.warning("The client can not finish within 1 minutes");
         }
+        
         client.closeMasterChannel();
     }
 }

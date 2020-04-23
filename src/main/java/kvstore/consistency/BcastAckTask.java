@@ -17,9 +17,10 @@ public class BcastAckTask extends taskEntry {
     private int senderId;
 
     /**
-     * @param localClock The clock of the message to acknowledge
-     * @param id         The id of the message to acknowledge
+     * @param localClock the clock of the message to acknowledge
+     * @param id         the id of the message to acknowledge
      * @param acksNum    the number acknowledgement required to delivery the message
+     * @param senderId   the senderId who sends the ack
      */
     public BcastAckTask(AtomicInteger globalClock, int localClock, int id, int senderId,
             List<Worker.ServerConfiguration> workerConf) {
@@ -44,6 +45,7 @@ public class BcastAckTask extends taskEntry {
                     .build();
             AckResp resp = stub.handleAck(request);
 
+            /* For debugging */
             // logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId, request.getClock(),
             //         request.getId(), i));
             channel.shutdown();
