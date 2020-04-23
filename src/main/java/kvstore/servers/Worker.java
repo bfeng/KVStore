@@ -1,6 +1,7 @@
 package kvstore.servers;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -32,18 +33,17 @@ public class Worker extends ServerBase {
         super(configuration);
         this.workerId = workerId;
         this.port = getWorkerConf().get(workerId).port;
-        this.sche = new Scheduler(16);
+        this.sche = new Scheduler(getWorkerConf().size());
     }
 
     @Override
     protected void start() throws IOException {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port).addService(new WorkerService(this)).build().start();
-        logger.info(String.format("Worker[%d] started, listening on %d", workerId, port));
+        // logger.info(String.format("Worker[%d] started, listening on %d", workerId, port));
 
         /* Start the scheduler */
-        Thread scheThread = new Thread(this.sche);
-        scheThread.start();
+        (new Thread(this.sche)).start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             // Use stderr here since the logger may have been reset by its JVM shutdown
@@ -69,7 +69,7 @@ public class Worker extends ServerBase {
         MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(channel);
         WorkerStatus status = WorkerStatus.newBuilder().setWorkerId(workerId).setStatus(statusCode.getValue()).build();
         MasterResponse response = stub.reportStatus(status);
-        logger.info(String.format("RPC: %d: Worker[%d] is registered with Master", response.getStatus(), workerId));
+        // logger.info(String.format("RPC: %d: Worker[%d] is registered with Master", response.getStatus(), workerId));
         channel.shutdown();
     }
 
@@ -80,23 +80,16 @@ public class Worker extends ServerBase {
      */
     private void bcastWriteReq(WriteReq req, int clock) {
         for (int i = 0; i < getWorkerConf().size(); i++) {
-            if (i != workerId) { /* Here it does not send to the worker self */
-                ServerConfiguration sc = getWorkerConf().get(i);
-                ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
-                WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
-                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
-                        .setRequest(req).setSenderClock(clock).build();
-                BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-                logger.info(String.format("Worker[%d] asks ack from Worker[%d]", workerId, resp.getReceiver()));
-                channel.shutdown();
-            }
+            ServerConfiguration sc = getWorkerConf().get(i);
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
+            WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
+            WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
+                    .setSenderClock(clock).build();
+            BcastResp resp = stub.handleBcastWrite(writeReqBcast);
+            // logger.info(String.format("<<<Worker[%d] --Brodcast Message[%d][%d]--> Worker[%d]>>>", workerId,
+            //         writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
+            channel.shutdown();
         }
-    }
-
-    /**
-     * Propagate the acknowledgements to other workers
-     */
-    private void bcastAcks(WriteReqBcast writeReqBcast, int clock) {
     }
 
     /**
@@ -119,19 +112,12 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
-            /* Update the clock */
+            /* Update the clock for issuing a write operation */
             globalClock.incrementAndGet();
 
-            /* Add the task to the priority queue for scheduling */
-            try {
-                worker.sche.addTask(new WriteTask(globalClock, globalClock.get(), worker.workerId,
-                        worker.getWorkerConf().size(), request, worker.dataStore));
-            } catch (InterruptedException e1) {
-                e1.printStackTrace();
-            }
-
-            /* Brodcast the write operation */
-            worker.bcastWriteReq(request, globalClock.get());
+            /* Brodcast the issued write operation */
+            /* Update the clock for brodcasting the message */
+            worker.bcastWriteReq(request, globalClock.incrementAndGet());
 
             /* Construbt return message to the master */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -139,23 +125,24 @@ public class Worker extends ServerBase {
             responseObserver.onCompleted();
         }
 
-        /**
-         * Return the acknowledgement immediately and enqueue the received write
-         * operation
-         */
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            /* Update clock compared with the sender */
+            /* Update clock by comparing with the sender */
+            /* Update clock for having received the brodcasted message */
             globalClock.set(Math.max(globalClock.get(), request.getSenderClock()));
+            globalClock.incrementAndGet();
 
             try {
-                /* Enqueue a new write task */
-                worker.sche.addTask(new WriteTask(globalClock, request.getSenderClock(), request.getSender(),
-                        worker.getWorkerConf().size(), request.getRequest(), worker.dataStore));
+                /* Create a new write task */
+                WriteTask newWriteTASK = new WriteTask(globalClock, request.getSenderClock(), request.getSender(),
+                        request.getRequest(), worker.dataStore);
 
-                /* Enqueue a new ackowledgement task as soon as received a message */
-                (new Thread(new BcastAckTask(globalClock, request.getSenderClock(), request.getSender(), 0,
-                        worker.workerId, worker.getWorkerConf()))).start();
+                /* Attach a bcastAckTask for this write task */
+                newWriteTASK.setBcastAckTask(new BcastAckTask(globalClock, request.getSenderClock(),
+                        request.getSender(), worker.workerId, worker.getWorkerConf()));
+
+                /* Enqueue a new write task */
+                worker.sche.addTask(newWriteTASK);
 
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -169,8 +156,21 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleAck(AckReq request, StreamObserver<AckResp> responseObserver) {
-            logger.info(String.format("Receiv ack from Worker[%d] for Clock[%d], Id[%d]", request.getSender(),
-                    request.getClock(), request.getId()));
+
+            /* Update clock compared with the sender */
+            /* Update the clock for having received the acknowledgement */
+            globalClock.set(Math.max(globalClock.get(), request.getSenderClock()));
+            globalClock.incrementAndGet();
+
+            /* Updata the acks number for the specified message */
+            globalClock.incrementAndGet(); /* Update the clock for having updated the acknowledgement */
+            Boolean[] ackArr = worker.sche.updateAck(request);
+
+            // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d] \n Current ack array: %s >>>",
+            //         worker.workerId, request.getClock(), request.getId(), request.getSender(),
+            //         Arrays.toString(ackArr)));
+
+            /* Return */
             AckResp resp = AckResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
             responseObserver.onNext(resp);
             responseObserver.onCompleted();

@@ -10,31 +10,48 @@ public class WriteTask extends taskEntry {
     private static final Logger logger = Logger.getLogger(WriteTask.class.getName());
     private WriteReq writeReq;
     private Map<String, String> dataStore;
+    private BcastAckTask bcastAckTask;
+    private int bcastCount;
 
-    public WriteTask(AtomicInteger globalClock, int localClock, int id, int acksNum, WriteReq writeReq,
+    public WriteTask(AtomicInteger globalClock, int localClock, int id, WriteReq writeReq,
             Map<String, String> dataStore) {
-        super(globalClock, localClock, id, acksNum);
+        super(globalClock, localClock, id);
         this.writeReq = writeReq;
         this.dataStore = dataStore;
+        this.bcastAckTask = null;
+        this.bcastCount = 0;
+    }
+
+    public void setBcastAckTask(BcastAckTask bcastAckTask) {
+        this.bcastAckTask = bcastAckTask;
+        return;
     }
 
     /**
-     * Check if allow running by checking if received all replies
+     * Brodcast the acks for this message
      */
-    public boolean ifAllowDeliver() {
-        if (this.acksNum == 0)
-            return true;
-        return false;
+    public void bcastAcks() {
+        this.bcastCount++;
+        if (bcastAckTask != null) {
+            (new Thread(bcastAckTask)).start();
+        } else {
+            logger.warning("No bcast task for this message");
+            return;
+        }
     }
 
-    public int getAckNum() {
-        return acksNum;
+    /**
+     * @return the bcastCount
+     */
+    public int getBcastCount() {
+        return bcastCount;
     }
 
     @Override
     public void run() {
+        globalClock.incrementAndGet(); /* Update the clock for having wrote to the data store */
         dataStore.put(writeReq.getKey(), writeReq.getVal());
-        logger.info(String.format("<<<<<<<<<<<Worker[%d][%d]: write ,key=%s,val=%s>>>>>>>>>>>", id, localClock,
-                writeReq.getKey(), writeReq.getVal()));
+        // logger.info(String.format("<<<<<<<<<<<Deliver Message[%d][%d]: key=%s,val=%s>>>>>>>>>>>", localClock, id,
+        //         writeReq.getKey(), writeReq.getVal()));
     }
 }

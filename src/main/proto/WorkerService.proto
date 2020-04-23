@@ -19,8 +19,9 @@ message BcastResp {
 message AckReq {
     int32 sender = 1;
     int32 receiver = 2;
-    int32 clock = 3;
-    int32 id = 4;
+    int32 senderClock = 3;
+    int32 clock = 4;
+    int32 id = 5;
 }
 
 message AckResp {

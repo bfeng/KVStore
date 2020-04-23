@@ -1,29 +1,25 @@
 package kvstore.consistency;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.Semaphore;
 import java.util.logging.Logger;
 
-/**
- * The scheduler block all rpc calls that are then enqueued into a priority
- * queue. The queue maintains the taskEntry instance which has a semaphore, i.e,
- * the priority queue maitains a queue of semaphores. A seperated thread keep
- * taking a task from the priority queue and resume. Proceed upon the task is
- * finished
- */
+import kvstore.servers.AckReq;
+
 public class Scheduler implements Runnable {
     private PriorityBlockingQueue<taskEntry> tasksQ;
     private static final Logger logger = Logger.getLogger(Scheduler.class.getName());
-    private ConcurrentHashMap<String, Integer> acksMap;
+    private ConcurrentHashMap<String, Boolean[]> acksMap;
+    private int ackLimit;
 
-    public Scheduler(int initSize) {
+    public Scheduler(int ackLimit) {
         /* The initial capacity is set to 16 */
         this.tasksQ = new PriorityBlockingQueue<taskEntry>(16, new sortByTime());
-        this.acksMap = new ConcurrentHashMap<String, Integer>(16);
+        this.acksMap = new ConcurrentHashMap<String, Boolean[]>(16);
+        this.ackLimit = ackLimit;
     }
 
     /**
@@ -35,21 +31,24 @@ public class Scheduler implements Runnable {
     public void run() {
         while (true) {
             try {
-                Thread.sleep(2 * 1000);
-                taskEntry task = tasksQ.take();
-                logger.info(String.format("New %s: Clock %d, Id %d, Need Ack %d", task.getClass().getName(),
-                        task.localClock, task.id, task.acksNum));
-                if (task.acksNum == 0) {
-                    logger.info("Received all acks, allow proceeding");
+                Thread.sleep(new Random().nextInt(3) * 1000);/* Only for the testing purpose */
+
+                WriteTask task = (WriteTask) tasksQ.take();
+                // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>", task.getClass().getName(),
+                //         task.localClock, task.id));
+                if (isAcked(task)) {
                     Thread taskThread = new Thread(task);
                     taskThread.start();
                     taskThread.join();
+                    logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", task.localClock, task.id));
                 } else {
+                    if (task.getBcastCount() == 0)
+                        task.bcastAcks();
                     tasksQ.put(task);
-                    logger.warning("Cannot proceeding");
+                    // logger.info(String.format("<<<Message[%d][%d] Blocked! Current ack array: %s>>>", task.localClock,
+                    //         task.id, Arrays.toString(this.acksMap.get(task.toString()))));
                 }
             } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
 
@@ -59,7 +58,9 @@ public class Scheduler implements Runnable {
     public taskEntry addTask(taskEntry newTask) throws InterruptedException {
         tasksQ.put(newTask); /* Put the taks to the priority queue */
         if (!this.acksMap.containsKey(newTask.toString())) {
-            this.acksMap.put(newTask.toString(), 0);
+            Boolean[] ackArr = new Boolean[ackLimit];
+            Arrays.fill(ackArr, false);
+            this.acksMap.put(newTask.toString(), ackArr);
         }
         return newTask;
     }
@@ -70,11 +71,23 @@ public class Scheduler implements Runnable {
      * @param key
      * @return the latest number of received acks
      */
-    public int updateAck(String key) {
+
+    public boolean isAcked(taskEntry task) {
+        String key = task.toString();
+        if (Arrays.asList(this.acksMap.get(key)).contains(false))
+            return false;
+        return true;
+    }
+
+    public Boolean[] updateAck(AckReq ackReq) {
+        String key = ackReq.getClock() + "." + ackReq.getId();
         if (!this.acksMap.containsKey(key)) {
-            this.acksMap.put(key, 1);
+            Boolean[] ackArr = new Boolean[ackLimit];
+            Arrays.fill(ackArr, false);
+            this.acksMap.put(key, ackArr);
+            this.acksMap.get(key)[ackReq.getSender()] = true;
         } else {
-            this.acksMap.put(key, this.acksMap.get(key) + 1);
+            this.acksMap.get(key)[ackReq.getSender()] = true;
         }
         return this.acksMap.get(key);
     }
