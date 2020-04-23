@@ -9,7 +9,6 @@ import java.util.logging.Logger;
 
 import kvstore.servers.AckReq;
 
-
 /**
  * All incoming operations are enqueue into a priority queue sorted by a
  * customized comparator. The scheduler keeps taking a task from the priority
@@ -48,7 +47,7 @@ public class Scheduler implements Runnable {
     public void run() {
         while (true) {
             try {
-                Thread.sleep(new Random().nextInt(3) * 1000); /* Random dealy. Only for the testing purpose */
+                // Thread.sleep(new Random().nextInt(3) * 1000); /* Random dealy. Only for the testing purpose */
 
                 /* Taking a task from the queue. Block when the queue is empty */
                 WriteTask task = (WriteTask) tasksQ.take();
@@ -57,7 +56,10 @@ public class Scheduler implements Runnable {
                 // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>",
                 // task.getClass().getName(),
                 // task.localClock, task.id));
-
+                
+                /* Here it only allows broadcasting once for each message */
+                if (task.getBcastCount() == 0)
+                    task.bcastAcks();
                 /* Deliver the message when all replies received */
                 if (isAcked(task)) {
                     Thread taskThread = new Thread(task);
@@ -65,15 +67,12 @@ public class Scheduler implements Runnable {
                     taskThread.join();
                     logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", task.localClock, task.id));
                 } else {
-                    /* Here it only allows broadcasting once for each message */
-                    if (task.getBcastCount() == 0)
-                        task.bcastAcks();
+
                     tasksQ.put(task); /* Put back the task for rescheduling */
 
                     /* For debugging */
-                    // logger.info(String.format("<<<Message[%d][%d] Blocked! Current ack array:
-                    // %s>>>", task.localClock,
-                    // task.id, Arrays.toString(this.acksMap.get(task.toString()))));
+                    // logger.info(String.format("<<<Message[%d][%d] Blocked! Current ack array:%s>>>", task.localClock,
+                    //         task.id, Arrays.toString(this.acksMap.get(task.toString()))));
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
