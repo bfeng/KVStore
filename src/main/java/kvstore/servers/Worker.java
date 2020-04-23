@@ -1,9 +1,11 @@
 package kvstore.servers;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import io.grpc.ManagedChannel;
@@ -12,8 +14,12 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
+import kvstore.consistency.BcastAckTask;
 import kvstore.consistency.Scheduler;
-import kvstore.consistency.Scheduler.taskEntry;
+import kvstore.consistency.WriteTask;
+import kvstore.consistency.taskEntry;
+import kvstore.servers.AckReq;
+import kvstore.servers.AckResp;
 
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
@@ -34,7 +40,7 @@ public class Worker extends ServerBase {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port).addService(new WorkerService(this)).build().start();
         logger.info(String.format("Worker[%d] started, listening on %d", workerId, port));
-        
+
         /* Start the scheduler */
         Thread scheThread = new Thread(this.sche);
         scheThread.start();
@@ -69,23 +75,28 @@ public class Worker extends ServerBase {
 
     /**
      * Propagate the write rquest to other workers
+     * 
      * @TODO: What if acks are not return
      */
-    private void bcastWriteReq(WriteReq req, int logicTime) {
+    private void bcastWriteReq(WriteReq req, int clock) {
         for (int i = 0; i < getWorkerConf().size(); i++) {
-            if (i != workerId) { /* Do not send to the worker self */
+            if (i != workerId) { /* Here it does not send to the worker self */
                 ServerConfiguration sc = getWorkerConf().get(i);
                 ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
                 WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
                 WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
-                        .setRequest(req).setSenderClock(logicTime).build();
+                        .setRequest(req).setSenderClock(clock).build();
                 BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-                // logger.info(
-                // String.format("RPC %d: Worker[%d] has done this replica", resp.getStatus(),
-                // resp.getReceiver()));
+                logger.info(String.format("Worker[%d] asks ack from Worker[%d]", workerId, resp.getReceiver()));
                 channel.shutdown();
             }
         }
+    }
+
+    /**
+     * Propagate the acknowledgements to other workers
+     */
+    private void bcastAcks(WriteReqBcast writeReqBcast, int clock) {
     }
 
     /**
@@ -99,37 +110,28 @@ public class Worker extends ServerBase {
 
     static class WorkerService extends WorkerServiceGrpc.WorkerServiceImplBase {
         private final Worker worker;
-        private int logicTime; /* A server would maintain a logic clock */
+        private AtomicInteger globalClock; /* A server would maintain a logic clock */
 
         WorkerService(Worker worker) {
             this.worker = worker;
-            this.logicTime = 0;
+            this.globalClock = new AtomicInteger(0);
         }
 
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
-            taskEntry t = new taskEntry();
-            try {
-                t = worker.sche.addTask();
-                t.sem.acquire(); /* Block the current thread and being subject to scheduling */
+            /* Update the clock */
+            globalClock.incrementAndGet();
 
-                t.logicTime = ++logicTime; /* Update for the write event */
-                t.id = worker.workerId;
-            } catch (InterruptedException e) {
-                logger.info(e.getMessage());
+            /* Add the task to the priority queue for scheduling */
+            try {
+                worker.sche.addTask(new WriteTask(globalClock, globalClock.get(), worker.workerId,
+                        worker.getWorkerConf().size(), request, worker.dataStore));
+            } catch (InterruptedException e1) {
+                e1.printStackTrace();
             }
 
-            /* Propagate the write operations */
-            logicTime++; /* Update for the brodcast */
-            worker.bcastWriteReq(request, logicTime);
-
-            /* Write to the data store */
-            worker.dataStore.put(request.getKey(), request.getVal());
-            logger.info(String.format("<<<<<<<<<<<Worker[%d][%d]: write , key=%s,val=%s>>>>>>>>>>>", worker.workerId,
-                    t.logicTime, request.getKey(), request.getVal()));
-
-            /* Countdown to let scheduler continue */
-            t.finisLatch.countDown();
+            /* Brodcast the write operation */
+            worker.bcastWriteReq(request, globalClock.get());
 
             /* Construbt return message to the master */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -143,38 +145,33 @@ public class Worker extends ServerBase {
          */
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            Thread receivedWrite = new Thread() {
-                public void run() {
-                    taskEntry t = new taskEntry();
-                    try {
-                        t = worker.sche.addTask();
-                        t.sem.acquire(); /* Block the current thread and being subject to scheduling */
-                        logger.info(String.format("Update clock: Self %d vs Sender %d", logicTime,
-                                request.getSenderClock()));
-                        logicTime = Math.max(request.getSenderClock(),
-                                logicTime); /* Compare and update logic time with the sender */
-                        t.logicTime = ++logicTime; /* Update for the write event */
-                        t.id = worker.workerId;
-                    } catch (InterruptedException e) {
-                        logger.info(e.getMessage());
-                    }
-                    
-                    /* Write to the data store */
-                    worker.dataStore.put(request.getRequest().getKey(), request.getRequest().getVal());
-                    logger.info(String.format(
-                            "Worker[%d][%d]: replica received from Worker[%d], <<<<<<<<<write key=%s, val=%s>>>>>>>>>",
-                            worker.workerId, t.logicTime, request.getSender(), request.getRequest().getKey(),
-                            request.getRequest().getVal()));
+            /* Update clock compared with the sender */
+            globalClock.set(Math.max(globalClock.get(), request.getSenderClock()));
 
-                    /* Release lock and coundown to let scheduler continue */
-                    t.finisLatch.countDown();
-                }
-            };
+            try {
+                /* Enqueue a new write task */
+                worker.sche.addTask(new WriteTask(globalClock, request.getSenderClock(), request.getSender(),
+                        worker.getWorkerConf().size(), request.getRequest(), worker.dataStore));
 
-            receivedWrite.start();
+                /* Enqueue a new ackowledgement task as soon as received a message */
+                (new Thread(new BcastAckTask(globalClock, request.getSenderClock(), request.getSender(), 0,
+                        worker.workerId, worker.getWorkerConf()))).start();
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
             /* Return */
             BcastResp resp = BcastResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
+            responseObserver.onNext(resp);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void handleAck(AckReq request, StreamObserver<AckResp> responseObserver) {
+            logger.info(String.format("Receiv ack from Worker[%d] for Clock[%d], Id[%d]", request.getSender(),
+                    request.getClock(), request.getId()));
+            AckResp resp = AckResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
             responseObserver.onNext(resp);
             responseObserver.onCompleted();
         }

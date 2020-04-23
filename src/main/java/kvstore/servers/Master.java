@@ -132,6 +132,7 @@ public class Master extends ServerBase {
             Random random = new Random();
             /* Distribute the message to a random known worker */
             int workerId = random.nextInt(master.getWorkerConf().size());
+            // workerId = 0; /* Only for test purpose */
             
             /* A synchonous call to distribute the messages */
             WriteResp resp = WriteResp.newBuilder().setStatus(-1).build();

@@ -16,7 +16,20 @@ message BcastResp {
     int32 status = 2;
 }
 
+message AckReq {
+    int32 sender = 1;
+    int32 receiver = 2;
+    int32 clock = 3;
+    int32 id = 4;
+}
+
+message AckResp {
+    int32 receiver = 1;
+    int32 status = 2;
+}
+
 service WorkerService {
     rpc handleWrite (kvstore.common.WriteReq) returns (kvstore.common.WriteResp);
     rpc handleBcastWrite (WriteReqBcast) returns (BcastResp);
+    rpc handleAck(AckReq) returns (AckResp);
 }

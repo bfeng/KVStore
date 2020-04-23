@@ -2,6 +2,7 @@ package kvstore.consistency;
 
 import java.util.Comparator;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.Semaphore;
@@ -17,67 +18,65 @@ import java.util.logging.Logger;
 public class Scheduler implements Runnable {
     private PriorityBlockingQueue<taskEntry> tasksQ;
     private static final Logger logger = Logger.getLogger(Scheduler.class.getName());
+    private ConcurrentHashMap<String, Integer> acksMap;
 
     public Scheduler(int initSize) {
         /* The initial capacity is set to 16 */
         this.tasksQ = new PriorityBlockingQueue<taskEntry>(16, new sortByTime());
+        this.acksMap = new ConcurrentHashMap<String, Integer>(16);
     }
 
     /**
      * Grab a task from the priority queue and release its lock
+     * 
+     * @TODO: when to deliver a message?
      */
     @Override
     public void run() {
         while (true) {
             try {
-                /* Wait a random duration to let buffer grow */
-                Random rand = new Random();
-                Thread.sleep(rand.nextInt(3) * 1000);
-            } catch (InterruptedException e1) {
-                e1.printStackTrace();
-            }
-            /* Grab a task from the queue. Blocked when no item available */
-            taskEntry t = new taskEntry();
-            try {
-                t = this.tasksQ.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            /* Wait untill the thread is acquired */
-            while (!t.sem.hasQueuedThreads()) {
-            }
-            logger.info(String.format("New write operation"));
-            t.sem.release();
-
-            /* Proceed untill the current task is finished */
-            try {
-                t.finisLatch.await();
+                Thread.sleep(2 * 1000);
+                taskEntry task = tasksQ.take();
+                logger.info(String.format("New %s: Clock %d, Id %d, Need Ack %d", task.getClass().getName(),
+                        task.localClock, task.id, task.acksNum));
+                if (task.acksNum == 0) {
+                    logger.info("Received all acks, allow proceeding");
+                    Thread taskThread = new Thread(task);
+                    taskThread.start();
+                    taskThread.join();
+                } else {
+                    tasksQ.put(task);
+                    logger.warning("Cannot proceeding");
+                }
             } catch (InterruptedException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             }
+
         }
     }
 
-    public taskEntry addTask() throws InterruptedException {
-        taskEntry newTask = new taskEntry();
-        this.tasksQ.put(newTask);
+    public taskEntry addTask(taskEntry newTask) throws InterruptedException {
+        tasksQ.put(newTask); /* Put the taks to the priority queue */
+        if (!this.acksMap.containsKey(newTask.toString())) {
+            this.acksMap.put(newTask.toString(), 0);
+        }
         return newTask;
     }
 
-    public static class taskEntry {
-        public int logicTime;
-        public int id;
-        public Semaphore sem;
-        public final CountDownLatch finisLatch;
-
-        public taskEntry() {
-            this.logicTime = -1;
-            this.id = -1;
-            this.sem = new Semaphore(0);
-            this.finisLatch = new CountDownLatch(1);
+    /**
+     * Update the ack number for the specified message represented by the key
+     * 
+     * @param key
+     * @return the latest number of received acks
+     */
+    public int updateAck(String key) {
+        if (!this.acksMap.containsKey(key)) {
+            this.acksMap.put(key, 1);
+        } else {
+            this.acksMap.put(key, this.acksMap.get(key) + 1);
         }
+        return this.acksMap.get(key);
     }
 
     /**
@@ -87,8 +86,8 @@ public class Scheduler implements Runnable {
 
         @Override
         public int compare(taskEntry o1, taskEntry o2) {
-            if (o1.logicTime != o2.logicTime) {
-                return o1.logicTime - o2.logicTime;
+            if (o1.localClock != o2.localClock) {
+                return o1.localClock - o2.localClock;
             } else {
                 return o1.id - o2.id;
             }

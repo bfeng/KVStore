@@ -77,11 +77,11 @@ abstract class ServerBase {
      * - A nested static inner class which is a static member of ServerBase class
      * - The final suggests the variable can only be assigned once
     */
-    static class ServerConfiguration {
-        final String ip; // ip can be hostname as well
-        final int port;
-        final String home;
-        final MachineType type;
+    public static class ServerConfiguration {
+        public final String ip; // ip can be hostname as well
+        public final int port;
+        public final String home;
+        public final MachineType type;
 
         public ServerConfiguration(String ip, String port, String home, MachineType type) {
             this.ip = ip;

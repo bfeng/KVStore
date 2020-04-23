@@ -109,29 +109,30 @@ public class KVClient {
 
     void write(String key, String value, CountDownLatch finishLatch) {
         ManagedChannel channel = ManagedChannelBuilder.forAddress(serverIp, serverPort).usePlaintext().build();
-        // MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(channel);
+        // MasterServiceGrpc.MasterServiceBlockingStub stub =
+        // MasterServiceGrpc.newBlockingStub(channel);
         MasterServiceGrpc.MasterServiceStub asyncStub = MasterServiceGrpc.newStub(channel);
         WriteReq writeReq = WriteReq.newBuilder().setKey(key).setVal(value).build();
-        asyncStub.writeMsg(writeReq, new StreamObserver<WriteResp>(){
-        
+        asyncStub.writeMsg(writeReq, new StreamObserver<WriteResp>() {
+
             @Override
             public void onNext(WriteResp resp) {
                 logger.info(String.format("RPC %d: Worker[%d] has done", resp.getStatus(), resp.getReceiver()));
-                
+
             }
-        
+
             @Override
             public void onError(Throwable t) {
                 finishLatch.countDown();
             }
-        
+
             @Override
             public void onCompleted() {
-                
+
                 finishLatch.countDown();
             }
         });
-        
+
     }
 
     public static void main(String[] args) throws InterruptedException {
@@ -139,13 +140,14 @@ public class KVClient {
         final CountDownLatch finishLatch = new CountDownLatch(client.reqList.size());
 
         for (ReqContent req : client.reqList) {
+            Thread.sleep(1 * 1000);
             logger.info(Integer.toString(req.getAct()) + ":" + req.getKey() + ":" + req.getVal() + ":"
                     + Integer.toString(req.getOpt()));
             if (req.getAct() == 1) {
                 client.write(req.getKey(), req.getVal(), finishLatch);
             }
         }
-        
+
         if (!finishLatch.await(1, TimeUnit.MINUTES)) {
             logger.warning("The client can not finish within 1 minutes");
         }
