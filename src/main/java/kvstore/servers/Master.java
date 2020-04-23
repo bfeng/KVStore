@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -20,7 +19,7 @@ public class Master extends ServerBase {
 
     private final int port;
 
-    private Map<Integer, Integer> clusterStatus;
+    private final Map<Integer, Integer> clusterStatus;
 
     /**
      * The master constructor read the configuration to set up port
@@ -67,9 +66,8 @@ public class Master extends ServerBase {
 
     /**
      * Send write requests to workers and wait for response
-     * 
+     *
      * @throws InterruptedException
-     * 
      * @Todo: channel timeout shoule be customized
      * @Todo: The returned status is only a mock return
      */
@@ -123,7 +121,7 @@ public class Master extends ServerBase {
         /**
          * Distribute the messages to workers. The distribution is asynchronous, so able
          * to handle multiple requests at the same time
-         * 
+         *
          * @Todo: Code for handling return status required
          */
         @Override
@@ -133,7 +131,7 @@ public class Master extends ServerBase {
             /* Distribute the message to a random known worker */
             int workerId = random.nextInt(master.getWorkerConf().size());
             // workerId = 0; /* Only for test purpose */
-            
+
             /* A synchonous call to distribute the messages */
             WriteResp resp = WriteResp.newBuilder().setStatus(-1).build();
             try {

@@ -2,7 +2,7 @@ package kvstore.consistency;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public abstract class taskEntry implements Runnable {
+public abstract class TaskEntry implements Runnable {
     AtomicInteger globalClock;
     int localClock;
     int id;
@@ -11,7 +11,7 @@ public abstract class taskEntry implements Runnable {
     public void run() {
     }
 
-    public taskEntry(AtomicInteger globalClock, int localClock, int id) {
+    public TaskEntry(AtomicInteger globalClock, int localClock, int id) {
         this.globalClock = globalClock;
         this.localClock = localClock;
         this.id = id;

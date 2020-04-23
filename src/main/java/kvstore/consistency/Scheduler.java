@@ -1,5 +1,7 @@
 package kvstore.consistency;
 
+import kvstore.servers.AckReq;
+
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
@@ -7,17 +9,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.logging.Logger;
 
-import kvstore.servers.AckReq;
-
 
 /**
  * All incoming operations are enqueue into a priority queue sorted by a
  * customized comparator. The scheduler keeps taking a task from the priority
  * queue starting the task if allowed.
- * 
  */
 public class Scheduler implements Runnable {
-    private PriorityBlockingQueue<taskEntry> tasksQ;
+    private PriorityBlockingQueue<TaskEntry> tasksQ;
     private static final Logger logger = Logger.getLogger(Scheduler.class.getName());
     private ConcurrentHashMap<String, Boolean[]> acksMap;
     private int ackLimit;
@@ -25,17 +24,17 @@ public class Scheduler implements Runnable {
     /**
      * The number of acknowledgement required for start a task, i.e., delivering a
      * message.
-     * 
+     * <p>
      * The ackMaps contains all happened acknowledgement for each message. The value
      * of the map is a boolean array. The index of the array corresponding the id of
      * workers. For example, "1.0" : [fasle, fasle, true] means the message "1.0"
      * doesn't receive acknowledgement from the worker 0, 1 but 2.
-     * 
+     *
      * @param ackLimit
      */
     public Scheduler(int ackLimit) {
         /* The initial capacity is set to 16 */
-        this.tasksQ = new PriorityBlockingQueue<taskEntry>(16, new sortByTime());
+        this.tasksQ = new PriorityBlockingQueue<TaskEntry>(16, new sortByTime());
         /* A hashmap contains all happened acknowledgement */
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(16);
         this.ackLimit = ackLimit;
@@ -85,7 +84,7 @@ public class Scheduler implements Runnable {
     /**
      * Add a new task and also create the corresponding ackMap item for this message
      */
-    public taskEntry addTask(taskEntry newTask) throws InterruptedException {
+    public TaskEntry addTask(TaskEntry newTask) throws InterruptedException {
         tasksQ.put(newTask); /* Put the taks to the priority queue */
         if (!this.acksMap.containsKey(newTask.toString())) {
             Boolean[] ackArr = new Boolean[ackLimit];
@@ -97,11 +96,8 @@ public class Scheduler implements Runnable {
 
     /**
      * Check if all replies for this message is received
-     * 
-     * @param key
      */
-
-    public boolean isAcked(taskEntry task) {
+    public boolean isAcked(TaskEntry task) {
         String key = task.toString();
         if (!this.acksMap.containsKey(key) || Arrays.asList(this.acksMap.get(key)).contains(false))
             return false;
@@ -110,7 +106,7 @@ public class Scheduler implements Runnable {
 
     /**
      * Update the ack for the specified message represented by the key
-     * 
+     *
      * @param ackReq an acknowledgement request
      * @return
      */
@@ -131,10 +127,10 @@ public class Scheduler implements Runnable {
      * A comparator for implementing the total order. The scalar time is used. The
      * id is for the tie-breaking when the clocks are equal
      */
-    public static class sortByTime implements Comparator<taskEntry> {
+    public static class sortByTime implements Comparator<TaskEntry> {
 
         @Override
-        public int compare(taskEntry o1, taskEntry o2) {
+        public int compare(TaskEntry o1, TaskEntry o2) {
             if (o1.localClock != o2.localClock) {
                 return o1.localClock - o2.localClock;
             } else {

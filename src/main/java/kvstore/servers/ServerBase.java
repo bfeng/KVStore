@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 abstract class ServerBase {
     private ServerConfiguration masterConf;
-    private List<ServerConfiguration> workerConf;
+    private final List<ServerConfiguration> workerConf;
 
     protected Server server;
 
@@ -76,7 +76,7 @@ abstract class ServerBase {
      * The serverConfiguration saves related metadata for the server
      * - A nested static inner class which is a static member of ServerBase class
      * - The final suggests the variable can only be assigned once
-    */
+     */
     public static class ServerConfiguration {
         public final String ip; // ip can be hostname as well
         public final int port;
@@ -95,7 +95,7 @@ abstract class ServerBase {
         READY(0),
         DOWN(-1);
 
-        private int value;
+        private final int value;
 
         ServerStatus(int value) {
             this.value = value;

@@ -6,7 +6,7 @@ import java.util.logging.Logger;
 
 import kvstore.common.WriteReq;
 
-public class WriteTask extends taskEntry {
+public class WriteTask extends TaskEntry {
     private static final Logger logger = Logger.getLogger(WriteTask.class.getName());
     private WriteReq writeReq;
     private Map<String, String> dataStore;

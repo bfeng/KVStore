@@ -1,14 +1,5 @@
 package kvstore.servers;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
-
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
@@ -18,15 +9,18 @@ import kvstore.common.WriteResp;
 import kvstore.consistency.BcastAckTask;
 import kvstore.consistency.Scheduler;
 import kvstore.consistency.WriteTask;
-import kvstore.consistency.taskEntry;
-import kvstore.servers.AckReq;
-import kvstore.servers.AckResp;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
-    private Map<String, String> dataStore = new ConcurrentHashMap<>();
+    private final Map<String, String> dataStore = new ConcurrentHashMap<>();
     private Scheduler sche;
 
     public Worker(String configuration, int workerId) throws IOException {
@@ -77,7 +71,7 @@ public class Worker extends ServerBase {
 
     /**
      * Propagate the write rquest to other workers
-     * 
+     *
      * @TODO: What if acks are not return
      */
     private void bcastWriteReq(WriteReq req, int clock) {
@@ -117,7 +111,7 @@ public class Worker extends ServerBase {
         /**
          * When receiving a write request, the worker broadcasts the message to other
          * workers
-         * 
+         *
          * @TODO: Currently the worker doesn't return status to the master
          */
         @Override
