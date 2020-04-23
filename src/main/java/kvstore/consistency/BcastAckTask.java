@@ -1,9 +1,5 @@
 package kvstore.consistency;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
-
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import kvstore.servers.AckReq;
@@ -11,7 +7,11 @@ import kvstore.servers.AckResp;
 import kvstore.servers.Worker;
 import kvstore.servers.WorkerServiceGrpc;
 
-public class BcastAckTask extends taskEntry {
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
+
+public class BcastAckTask extends TaskEntry {
     private static final Logger logger = Logger.getLogger(BcastAckTask.class.getName());
     private List<Worker.ServerConfiguration> workerConf;
     private int senderId;
@@ -19,11 +19,10 @@ public class BcastAckTask extends taskEntry {
     /**
      * @param localClock the clock of the message to acknowledge
      * @param id         the id of the message to acknowledge
-     * @param acksNum    the number acknowledgement required to delivery the message
      * @param senderId   the senderId who sends the ack
      */
     public BcastAckTask(AtomicInteger globalClock, int localClock, int id, int senderId,
-            List<Worker.ServerConfiguration> workerConf) {
+                        List<Worker.ServerConfiguration> workerConf) {
         super(globalClock, localClock, id);
         this.workerConf = workerConf;
         this.senderId = senderId;
