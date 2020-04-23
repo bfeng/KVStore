@@ -22,6 +22,7 @@ public class KVClient {
     private int serverPort;
     private String serverIp;
     private List<ReqContent> reqList;
+    ManagedChannel masterChannel;
 
     public KVClient(String configuration, int clientId) {
         this.clientId = clientId;
@@ -32,6 +33,7 @@ public class KVClient {
         } catch (IOException e) {
             //
         }
+        this.masterChannel = ManagedChannelBuilder.forAddress(serverIp, serverPort).usePlaintext().build();
     }
 
     private void parse(String configuration) throws IOException {
@@ -108,10 +110,7 @@ public class KVClient {
     }
 
     void write(String key, String value, CountDownLatch finishLatch) {
-        ManagedChannel channel = ManagedChannelBuilder.forAddress(serverIp, serverPort).usePlaintext().build();
-        // MasterServiceGrpc.MasterServiceBlockingStub stub =
-        // MasterServiceGrpc.newBlockingStub(channel);
-        MasterServiceGrpc.MasterServiceStub asyncStub = MasterServiceGrpc.newStub(channel);
+        MasterServiceGrpc.MasterServiceStub asyncStub = MasterServiceGrpc.newStub(masterChannel);
         WriteReq writeReq = WriteReq.newBuilder().setKey(key).setVal(value).build();
         asyncStub.writeMsg(writeReq, new StreamObserver<WriteResp>() {
 
@@ -132,9 +131,12 @@ public class KVClient {
                 finishLatch.countDown();
             }
         });
-
     }
 
+    public void closeMasterChannel(){
+        this.masterChannel.shutdown();
+    }
+    
     public static void main(String[] args) throws InterruptedException {
         KVClient client = new KVClient(args[0], Integer.parseInt(args[1]));
         final CountDownLatch finishLatch = new CountDownLatch(client.reqList.size());
@@ -151,5 +153,6 @@ public class KVClient {
         if (!finishLatch.await(1, TimeUnit.MINUTES)) {
             logger.warning("The client can not finish within 1 minutes");
         }
+        client.closeMasterChannel();
     }
 }

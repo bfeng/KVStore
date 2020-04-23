@@ -34,8 +34,9 @@ public class Scheduler implements Runnable {
                 Thread.sleep(new Random().nextInt(3) * 1000);/* Only for the testing purpose */
 
                 WriteTask task = (WriteTask) tasksQ.take();
-                // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>", task.getClass().getName(),
-                //         task.localClock, task.id));
+                // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>",
+                // task.getClass().getName(),
+                // task.localClock, task.id));
                 if (isAcked(task)) {
                     Thread taskThread = new Thread(task);
                     taskThread.start();
@@ -74,7 +75,7 @@ public class Scheduler implements Runnable {
 
     public boolean isAcked(taskEntry task) {
         String key = task.toString();
-        if (Arrays.asList(this.acksMap.get(key)).contains(false))
+        if (!this.acksMap.containsKey(key) || Arrays.asList(this.acksMap.get(key)).contains(false))
             return false;
         return true;
     }
