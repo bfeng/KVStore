@@ -40,7 +40,8 @@ public class Worker extends ServerBase {
     protected void start() throws IOException {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port).addService(new WorkerService(this)).build().start();
-        // logger.info(String.format("Worker[%d] started, listening on %d", workerId, port));
+        // logger.info(String.format("Worker[%d] started, listening on %d", workerId,
+        // port));
 
         /* Start the scheduler */
         (new Thread(this.sche)).start();
@@ -69,7 +70,8 @@ public class Worker extends ServerBase {
         MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(channel);
         WorkerStatus status = WorkerStatus.newBuilder().setWorkerId(workerId).setStatus(statusCode.getValue()).build();
         MasterResponse response = stub.reportStatus(status);
-        // logger.info(String.format("RPC: %d: Worker[%d] is registered with Master", response.getStatus(), workerId));
+        // logger.info(String.format("RPC: %d: Worker[%d] is registered with Master",
+        // response.getStatus(), workerId));
         channel.shutdown();
     }
 
@@ -86,8 +88,10 @@ public class Worker extends ServerBase {
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
                     .setSenderClock(clock).build();
             BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-            // logger.info(String.format("<<<Worker[%d] --Brodcast Message[%d][%d]--> Worker[%d]>>>", workerId,
-            //         writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
+            // logger.info(String.format("<<<Worker[%d] --broadcast Message[%d][%d]-->
+            // Worker[%d]>>>", workerId,
+            // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
+            // resp.getReceiver()));
             channel.shutdown();
         }
     }
@@ -110,16 +114,22 @@ public class Worker extends ServerBase {
             this.globalClock = new AtomicInteger(0);
         }
 
+        /**
+         * When receiving a write request, the worker broadcasts the message to other
+         * workers
+         * 
+         * @TODO: Currently the worker doesn't return status to the master
+         */
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             /* Update the clock for issuing a write operation */
             globalClock.incrementAndGet();
 
-            /* Brodcast the issued write operation */
-            /* Update the clock for brodcasting the message */
+            /* Broadcast the issued write operation */
+            /* Update the clock for broadcasting the message */
             worker.bcastWriteReq(request, globalClock.incrementAndGet());
 
-            /* Construbt return message to the master */
+            /* Return */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
             responseObserver.onNext(resp);
             responseObserver.onCompleted();
@@ -128,8 +138,8 @@ public class Worker extends ServerBase {
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
             /* Update clock by comparing with the sender */
-            /* Update clock for having received the brodcasted message */
             globalClock.set(Math.max(globalClock.get(), request.getSenderClock()));
+            /* Update clock for having received the broadcasted message */
             globalClock.incrementAndGet();
 
             try {
@@ -164,13 +174,14 @@ public class Worker extends ServerBase {
 
             /* Updata the acks number for the specified message */
             globalClock.incrementAndGet(); /* Update the clock for having updated the acknowledgement */
-            
+
             /* The below is for debugging */
             // Boolean[] ackArr = worker.sche.updateAck(request);
 
-            // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d] \n Current ack array: %s >>>",
-            //         worker.workerId, request.getClock(), request.getId(), request.getSender(),
-            //         Arrays.toString(ackArr)));
+            // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]
+            // \n Current ack array: %s >>>",
+            // worker.workerId, request.getClock(), request.getId(), request.getSender(),
+            // Arrays.toString(ackArr)));
 
             /* Return */
             AckResp resp = AckResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
