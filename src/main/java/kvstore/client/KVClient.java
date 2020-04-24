@@ -133,7 +133,7 @@ public class KVClient {
         });
     }
 
-    public void closeMasterChannel(){
+    public void closeMasterChannel() throws InterruptedException {
         this.masterChannel.shutdown();
     }
     
@@ -142,7 +142,6 @@ public class KVClient {
         final CountDownLatch finishLatch = new CountDownLatch(client.reqList.size());
 
         for (ReqContent req : client.reqList) {
-            Thread.sleep(1 * 1000);
             logger.info(Integer.toString(req.getAct()) + ":" + req.getKey() + ":" + req.getVal() + ":"
                     + Integer.toString(req.getOpt()));
             if (req.getAct() == 1) {

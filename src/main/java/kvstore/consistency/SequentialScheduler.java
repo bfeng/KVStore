@@ -33,7 +33,7 @@ public class SequentialScheduler extends Scheduler {
      * workers. For example, "1.0" : [fasle, fasle, true] means the message "1.0"
      * doesn't receive acknowledgement from the worker 0, 1 but 2.
      *
-     * @param ackLimit The number of acknowledgement required for start a task,
+     * @param ackLimit The number of acknowledgement required for starting a task,
      *                 i.e., delivering a message
      * @throws IOException
      * @throws SecurityException
@@ -42,7 +42,7 @@ public class SequentialScheduler extends Scheduler {
             throws SecurityException, IOException {
         super(sortBy);
         /* A hashmap contains all happened acknowledgement */
-        this.acksMap = new ConcurrentHashMap<String, Boolean[]>(16);
+        this.acksMap = new ConcurrentHashMap<String, Boolean[]>(1024);
         this.ackLimit = ackLimit;
         this.globalClock = 0;
 
@@ -68,7 +68,7 @@ public class SequentialScheduler extends Scheduler {
                 // testing purpose */
 
                 /* Taking a task from the queue. Block when the queue is empty */
-                WriteTask task = (WriteTask) tasksQ.take();
+                seqWriteTask task = (seqWriteTask) tasksQ.take();
 
                 /* For debugging */
                 // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>",
@@ -81,10 +81,16 @@ public class SequentialScheduler extends Scheduler {
 
                 /* Deliver the message when all replies received */
                 if (ifAllowDeliver(task)) {
+                    task.abortBcastAckTask();
+                    deleteAckArr(task.toString());
+
+                    logger.info(String.format("Queue: %d, Map %d", tasksQ.size(), acksMap.size()));
+
                     Thread taskThread = new Thread(task);
                     taskThread.start();
                     taskThread.join();
                     logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", task.localClock, task.id));
+
                 } else {
 
                     tasksQ.put(task); /* Put back the task for rescheduling */
@@ -145,20 +151,20 @@ public class SequentialScheduler extends Scheduler {
         return this.acksMap.get(key);
     }
 
+    public synchronized void deleteAckArr(String key) {
+        this.acksMap.remove(key);
+    }
+
     @Override
-    public synchronized int  incrementTimeStamp() {
+    public synchronized int incrementAndGetTimeStamp() {
         this.globalClock++;
         return globalClock;
     }
 
     @Override
-    public int getTimestamp() {
-        return this.globalClock;
-    }
-
-    @Override
-    public int updateTimeStamp(int localTimeStamp, int SenderTimeStamp) {
-        this.globalClock = Math.max(localTimeStamp, SenderTimeStamp);
+    public synchronized int updateAndIncrementTimeStamp(int SenderTimeStamp) {
+        this.globalClock = Math.max(this.globalClock, SenderTimeStamp);
+        this.globalClock++;
         return globalClock;
     }
 

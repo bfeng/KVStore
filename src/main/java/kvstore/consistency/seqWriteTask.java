@@ -1,13 +1,12 @@
 package kvstore.consistency;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import kvstore.common.WriteReq;
 
-public class WriteTask extends TaskEntry {
-    private static final Logger logger = Logger.getLogger(WriteTask.class.getName());
+public class seqWriteTask extends TaskEntry {
+    private static final Logger logger = Logger.getLogger(seqWriteTask.class.getName());
     private WriteReq writeReq;
     private Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
@@ -22,7 +21,7 @@ public class WriteTask extends TaskEntry {
      * @param writeReq    the write reqest sent by the master
      * @param dataStore   the reference to the data store of the current worker
      */
-    public WriteTask(int localClock, int id, WriteReq writeReq, Map<String, String> dataStore) {
+    public seqWriteTask(int localClock, int id, WriteReq writeReq, Map<String, String> dataStore) {
         super(localClock, id);
         this.writeReq = writeReq;
         this.dataStore = dataStore;
@@ -55,6 +54,10 @@ public class WriteTask extends TaskEntry {
         }
     }
 
+    public void abortBcastAckTask() {
+        this.bcastAckTask = null;
+    }
+
     /**
      * Get how many times have broadcasted acks
      * 
@@ -67,10 +70,11 @@ public class WriteTask extends TaskEntry {
     @Override
     public void run() {
         /* Write to the data store */
-        dataStore.put(writeReq.getKey(), writeReq.getVal());
+        // dataStore.put(writeReq.getKey(), writeReq.getVal());
 
         /* For debugging */
-        logger.info(String.format("<<<<<<<<<<<Deliver Message[%d][%d]:key=%s,val=%s>>>>>>>>>>>", localClock, id,
-                writeReq.getKey(), writeReq.getVal()));
+        // logger.info(String.format("<<<<<<<<<<<Deliver
+        // Message[%d][%d]:key=%s,val=%s>>>>>>>>>>>", localClock, id,
+        // writeReq.getKey(), writeReq.getVal()));
     }
 }

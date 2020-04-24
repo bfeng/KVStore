@@ -28,19 +28,13 @@ public class CausalScheduler extends Scheduler {
     }
 
     @Override
-    public int incrementTimeStamp() {
+    public int incrementAndGetTimeStamp() {
         // TODO Auto-generated method stub
         return 0;
     }
 
     @Override
-    public int getTimestamp() {
-        // TODO Auto-generated method stub
-        return 0;
-    }
-
-    @Override
-    public int updateTimeStamp(int localTimeStamp, int SenderTimeStamp) {
+    public int updateAndIncrementTimeStamp(int SenderTimeStamp) {
         // TODO Auto-generated method stub
         return 0;
     }

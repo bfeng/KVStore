@@ -8,7 +8,7 @@ import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.consistency.BcastAckTask;
 import kvstore.consistency.SequentialScheduler;
-import kvstore.consistency.WriteTask;
+import kvstore.consistency.seqWriteTask;
 import kvstore.consistency.sortByScalarTime;
 
 import java.io.IOException;
@@ -84,8 +84,10 @@ public class Worker extends ServerBase {
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
                     .setSenderClock(clock).build();
             BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-            logger.info(String.format("<<<Worker[%d] --broadcast Message[%d][%d]-->Worker[%d]>>>", workerId,
-                    writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
+            // logger.info(String.format("<<<Worker[%d] --broadcast
+            // Message[%d][%d]-->Worker[%d]>>>", workerId,
+            // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
+            // resp.getReceiver()));
             channel.shutdown();
         }
     }
@@ -115,11 +117,8 @@ public class Worker extends ServerBase {
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             /* Update the clock for issuing a write operation */
-            worker.sche.incrementTimeStamp();
-
             /* Broadcast the issued write operation */
-            /* Update the clock for broadcasting the message */
-            worker.bcastWriteReq(request, worker.sche.getTimestamp());
+            worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
 
             /* Return */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -130,13 +129,12 @@ public class Worker extends ServerBase {
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
             /* Update clock by comparing with the sender */
-            worker.sche.updateTimeStamp(worker.sche.getTimestamp(), request.getSenderClock());
             /* Update clock for having received the broadcasted message */
-            worker.sche.incrementTimeStamp();
+            worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
 
             /* Create a new write task */
-            WriteTask newWriteTASK = new WriteTask(request.getSenderClock(), request.getSender(), request.getRequest(),
-                    worker.dataStore);
+            seqWriteTask newWriteTASK = new seqWriteTask(request.getSenderClock(), request.getSender(),
+                    request.getRequest(), worker.dataStore);
 
             /* Attach a bcastAckTask for this write task */
             newWriteTASK.setBcastAckTask(new BcastAckTask(request.getSenderClock(), request.getSender(),
@@ -151,22 +149,26 @@ public class Worker extends ServerBase {
             responseObserver.onCompleted();
         }
 
+        /**
+         * The operations to the time stampe may be interleaved 1. update(1, 2) ->
+         * increment(2) -> update(3, 2) -> increment(4) 2. update() -> update() ->
+         * increment() -> increment()
+         */
         @Override
         public void handleAck(AckReq request, StreamObserver<AckResp> responseObserver) {
 
             /* Update clock compared with the sender */
-            worker.sche.updateTimeStamp(worker.sche.getTimestamp(), request.getSenderClock());
-            /* Update the clock for having received the acknowledgement */
-            worker.sche.incrementTimeStamp();
+            /* Update the clock for having updated the acknowledgement */
+            worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
 
             /* Updata the acks number for the specified message */
-            worker.sche.incrementTimeStamp(); /* Update the clock for having updated the acknowledgement */
             Boolean[] ackArr = worker.sche.updateAck(request);
 
             /* The below is for debugging */
-            logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n Current ack array: %s >>>",
-                    worker.workerId, request.getClock(), request.getId(), request.getSender(),
-                    Arrays.toString(ackArr)));
+            // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n
+            // Current ack array: %s >>>",
+            // worker.workerId, request.getClock(), request.getId(), request.getSender(),
+            // Arrays.toString(ackArr)));
 
             /* Return */
             AckResp resp = AckResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();

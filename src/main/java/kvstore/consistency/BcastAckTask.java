@@ -43,8 +43,8 @@ public class BcastAckTask extends TaskEntry {
             AckResp resp = stub.handleAck(request);
 
             /* For debugging */
-            logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId, request.getClock(),
-                    request.getId(), i));
+            // logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId, request.getClock(),
+            //         request.getId(), i));
             channel.shutdown();
         }
     }

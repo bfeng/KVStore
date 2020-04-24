@@ -7,12 +7,15 @@ import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class Master extends ServerBase {
     private static final Logger logger = Logger.getLogger(Master.class.getName());
@@ -20,6 +23,7 @@ public class Master extends ServerBase {
     private final int port;
 
     private final Map<Integer, Integer> clusterStatus;
+    FileHandler fh;
 
     /**
      * The master constructor read the configuration to set up port
@@ -30,6 +34,15 @@ public class Master extends ServerBase {
         this.port = getMasterConf().port;
         // The hashmap maintain the status of registered workers
         this.clusterStatus = new HashMap<>();
+
+        /* Configure the logger to outpu the log into files */
+        File logDir = new File("./logs/");
+        if (!logDir.exists())
+            logDir.mkdir();
+        fh = new FileHandler("logs/master.log");
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+        Master.logger.addHandler(fh);
     }
 
     /**
@@ -75,7 +88,7 @@ public class Master extends ServerBase {
         ManagedChannel channel = ManagedChannelBuilder
                 .forAddress(getWorkerConf().get(workerId).ip, getWorkerConf().get(workerId).port).usePlaintext()
                 .build();
-        WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel).withDeadlineAfter(1, TimeUnit.MINUTES);
+        WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
         WriteResp resp = stub.handleWrite(req);
 
         channel.shutdown();
