@@ -24,7 +24,7 @@ public class SequentialScheduler extends Scheduler {
     private static final Logger logger = Logger.getLogger(SequentialScheduler.class.getName());
     private ConcurrentHashMap<String, Boolean[]> acksMap;
     private int ackLimit;
-    public AtomicInteger globalClock; /* A scheduler would maintain a logic clock */
+    public int globalClock; /* A scheduler would maintain a logic clock */
     FileHandler fh;
 
     /**
@@ -44,7 +44,7 @@ public class SequentialScheduler extends Scheduler {
         /* A hashmap contains all happened acknowledgement */
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(16);
         this.ackLimit = ackLimit;
-        this.globalClock = new AtomicInteger(0);
+        this.globalClock = 0;
 
         /* Configure the logger to outpu the log into files */
         File logDir = new File("./logs/");
@@ -143,6 +143,23 @@ public class SequentialScheduler extends Scheduler {
             this.acksMap.get(key)[ackReq.getSender()] = true;
         }
         return this.acksMap.get(key);
+    }
+
+    @Override
+    public synchronized int  incrementTimeStamp() {
+        this.globalClock++;
+        return globalClock;
+    }
+
+    @Override
+    public int getTimestamp() {
+        return this.globalClock;
+    }
+
+    @Override
+    public int updateTimeStamp(int localTimeStamp, int SenderTimeStamp) {
+        this.globalClock = Math.max(localTimeStamp, SenderTimeStamp);
+        return globalClock;
     }
 
 }

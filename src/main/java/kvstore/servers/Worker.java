@@ -115,11 +115,11 @@ public class Worker extends ServerBase {
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             /* Update the clock for issuing a write operation */
-            worker.sche.globalClock.incrementAndGet();
+            worker.sche.incrementTimeStamp();
 
             /* Broadcast the issued write operation */
             /* Update the clock for broadcasting the message */
-            worker.bcastWriteReq(request, worker.sche.globalClock.incrementAndGet());
+            worker.bcastWriteReq(request, worker.sche.getTimestamp());
 
             /* Return */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -130,17 +130,17 @@ public class Worker extends ServerBase {
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
             /* Update clock by comparing with the sender */
-            worker.sche.globalClock.set(Math.max(worker.sche.globalClock.get(), request.getSenderClock()));
+            worker.sche.updateTimeStamp(worker.sche.getTimestamp(), request.getSenderClock());
             /* Update clock for having received the broadcasted message */
-            worker.sche.globalClock.incrementAndGet();
+            worker.sche.incrementTimeStamp();
 
             /* Create a new write task */
-            WriteTask newWriteTASK = new WriteTask(worker.sche.globalClock, request.getSenderClock(),
-                    request.getSender(), request.getRequest(), worker.dataStore);
+            WriteTask newWriteTASK = new WriteTask(request.getSenderClock(), request.getSender(), request.getRequest(),
+                    worker.dataStore);
 
             /* Attach a bcastAckTask for this write task */
-            newWriteTASK.setBcastAckTask(new BcastAckTask(worker.sche.globalClock, request.getSenderClock(),
-                    request.getSender(), worker.workerId, worker.getWorkerConf()));
+            newWriteTASK.setBcastAckTask(new BcastAckTask(request.getSenderClock(), request.getSender(),
+                    worker.workerId, worker.getWorkerConf()));
 
             /* Enqueue a new write task */
             worker.sche.addTask(newWriteTASK);
@@ -155,12 +155,12 @@ public class Worker extends ServerBase {
         public void handleAck(AckReq request, StreamObserver<AckResp> responseObserver) {
 
             /* Update clock compared with the sender */
+            worker.sche.updateTimeStamp(worker.sche.getTimestamp(), request.getSenderClock());
             /* Update the clock for having received the acknowledgement */
-            worker.sche.globalClock.set(Math.max(worker.sche.globalClock.get(), request.getSenderClock()));
-            worker.sche.globalClock.incrementAndGet();
+            worker.sche.incrementTimeStamp();
 
             /* Updata the acks number for the specified message */
-            worker.sche.globalClock.incrementAndGet(); /* Update the clock for having updated the acknowledgement */
+            worker.sche.incrementTimeStamp(); /* Update the clock for having updated the acknowledgement */
             Boolean[] ackArr = worker.sche.updateAck(request);
 
             /* The below is for debugging */

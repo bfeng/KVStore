@@ -22,9 +22,8 @@ public class WriteTask extends TaskEntry {
      * @param writeReq    the write reqest sent by the master
      * @param dataStore   the reference to the data store of the current worker
      */
-    public WriteTask(AtomicInteger globalClock, int localClock, int id, WriteReq writeReq,
-            Map<String, String> dataStore) {
-        super(globalClock, localClock, id);
+    public WriteTask(int localClock, int id, WriteReq writeReq, Map<String, String> dataStore) {
+        super(localClock, id);
         this.writeReq = writeReq;
         this.dataStore = dataStore;
         this.bcastAckTask = null;
@@ -67,7 +66,6 @@ public class WriteTask extends TaskEntry {
 
     @Override
     public void run() {
-        globalClock.incrementAndGet(); /* Update the clock for having wrote to the data store */
         /* Write to the data store */
         dataStore.put(writeReq.getKey(), writeReq.getVal());
 

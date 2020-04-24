@@ -1,6 +1,5 @@
 package kvstore.consistency;
 
-import java.lang.annotation.Inherited;
 import java.util.Comparator;
 import java.util.concurrent.PriorityBlockingQueue;
 
@@ -21,4 +20,9 @@ public abstract class Scheduler implements Runnable {
      * @throws InterruptedException
      */
     abstract public TaskEntry addTask(TaskEntry taskEntry);
+    
+    abstract public int incrementTimeStamp();
+    abstract public int getTimestamp();
+    abstract public int updateTimeStamp(int localTimeStamp, int SenderTimeStamp);
+    
 }

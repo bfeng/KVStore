@@ -21,9 +21,8 @@ public class BcastAckTask extends TaskEntry {
      * @param id         the id of the message to acknowledge
      * @param senderId   the senderId who sends the ack
      */
-    public BcastAckTask(AtomicInteger globalClock, int localClock, int id, int senderId,
-            List<Worker.ServerConfiguration> workerConf) {
-        super(globalClock, localClock, id);
+    public BcastAckTask(int localClock, int id, int senderId, List<Worker.ServerConfiguration> workerConf) {
+        super(localClock, id);
         this.workerConf = workerConf;
         this.senderId = senderId;
     }
@@ -33,7 +32,6 @@ public class BcastAckTask extends TaskEntry {
      */
     @Override
     public void run() {
-        globalClock.incrementAndGet(); /* Update the clock for sending acks */
         /* Send acks including the self */
         for (int i = 0; i < workerConf.size(); i++) {
             Worker.ServerConfiguration sc = this.workerConf.get(i);
