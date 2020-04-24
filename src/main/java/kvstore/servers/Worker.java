@@ -11,6 +11,7 @@ import kvstore.consistency.Scheduler;
 import kvstore.consistency.WriteTask;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,7 +28,7 @@ public class Worker extends ServerBase {
         super(configuration);
         this.workerId = workerId;
         this.port = getWorkerConf().get(workerId).port;
-        this.sche = new Scheduler(getWorkerConf().size());
+        this.sche = new Scheduler(getWorkerConf().size(), workerId);
     }
 
     @Override
@@ -82,10 +83,8 @@ public class Worker extends ServerBase {
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
                     .setSenderClock(clock).build();
             BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-            // logger.info(String.format("<<<Worker[%d] --broadcast Message[%d][%d]-->
-            // Worker[%d]>>>", workerId,
-            // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
-            // resp.getReceiver()));
+            logger.info(String.format("<<<Worker[%d] --broadcast Message[%d][%d]-->Worker[%d]>>>", workerId,
+                    writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
             channel.shutdown();
         }
     }
@@ -171,10 +170,9 @@ public class Worker extends ServerBase {
             Boolean[] ackArr = worker.sche.updateAck(request);
 
             /* The below is for debugging */
-            // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]
-            // \n Current ack array: %s >>>",
-            // worker.workerId, request.getClock(), request.getId(), request.getSender(),
-            // Arrays.toString(ackArr)));
+            logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n Current ack array: %s >>>",
+                    worker.workerId, request.getClock(), request.getId(), request.getSender(),
+                    Arrays.toString(ackArr)));
 
             /* Return */
             AckResp resp = AckResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();

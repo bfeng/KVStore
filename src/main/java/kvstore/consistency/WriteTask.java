@@ -70,10 +70,9 @@ public class WriteTask extends TaskEntry {
         globalClock.incrementAndGet(); /* Update the clock for having wrote to the data store */
         /* Write to the data store */
         dataStore.put(writeReq.getKey(), writeReq.getVal());
-        
+
         /* For debugging */
-        // logger.info(String.format("<<<<<<<<<<<Deliver Message[%d][%d]:
-        // key=%s,val=%s>>>>>>>>>>>", localClock, id,
-        // writeReq.getKey(), writeReq.getVal()));
+        logger.info(String.format("<<<<<<<<<<<Deliver Message[%d][%d]:key=%s,val=%s>>>>>>>>>>>", localClock, id,
+                writeReq.getKey(), writeReq.getVal()));
     }
 }

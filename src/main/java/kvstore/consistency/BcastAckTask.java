@@ -22,7 +22,7 @@ public class BcastAckTask extends TaskEntry {
      * @param senderId   the senderId who sends the ack
      */
     public BcastAckTask(AtomicInteger globalClock, int localClock, int id, int senderId,
-                        List<Worker.ServerConfiguration> workerConf) {
+            List<Worker.ServerConfiguration> workerConf) {
         super(globalClock, localClock, id);
         this.workerConf = workerConf;
         this.senderId = senderId;
@@ -45,8 +45,8 @@ public class BcastAckTask extends TaskEntry {
             AckResp resp = stub.handleAck(request);
 
             /* For debugging */
-            // logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId, request.getClock(),
-            //         request.getId(), i));
+            logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId, request.getClock(),
+                    request.getId(), i));
             channel.shutdown();
         }
     }

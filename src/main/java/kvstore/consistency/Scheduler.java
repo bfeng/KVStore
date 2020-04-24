@@ -2,12 +2,16 @@ package kvstore.consistency;
 
 import kvstore.servers.AckReq;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.logging.FileHandler;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import kvstore.servers.AckReq;
 
@@ -21,24 +25,35 @@ public class Scheduler implements Runnable {
     private static final Logger logger = Logger.getLogger(Scheduler.class.getName());
     private ConcurrentHashMap<String, Boolean[]> acksMap;
     private int ackLimit;
+    FileHandler fh;
 
     /**
-     * The number of acknowledgement required for start a task, i.e., delivering a
-     * message.
-     * <p>
      * The ackMaps contains all happened acknowledgement for each message. The value
      * of the map is a boolean array. The index of the array corresponding the id of
      * workers. For example, "1.0" : [fasle, fasle, true] means the message "1.0"
      * doesn't receive acknowledgement from the worker 0, 1 but 2.
      *
-     * @param ackLimit
+     * @param ackLimit The number of acknowledgement required for start a task,
+     *                 i.e., delivering a message
+     * @throws IOException
+     * @throws SecurityException
      */
-    public Scheduler(int ackLimit) {
+    public Scheduler(int ackLimit, int workerId) throws SecurityException, IOException {
         /* The initial capacity is set to 16 */
         this.tasksQ = new PriorityBlockingQueue<TaskEntry>(16, new sortByTime());
         /* A hashmap contains all happened acknowledgement */
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(16);
         this.ackLimit = ackLimit;
+
+        /* Configure the logger */
+        File logDir = new File("./logs/");
+        if (!logDir.exists())
+            logDir.mkdir();
+        fh = new FileHandler("logs/worker_" + workerId + ".log");
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+        Scheduler.logger.addHandler(fh);
+
     }
 
     /**
@@ -48,7 +63,8 @@ public class Scheduler implements Runnable {
     public void run() {
         while (true) {
             try {
-                // Thread.sleep(new Random().nextInt(3) * 1000); /* Random dealy. Only for the testing purpose */
+                // Thread.sleep(new Random().nextInt(2) * 1000); /* Random dealy. Only for the
+                // testing purpose */
 
                 /* Taking a task from the queue. Block when the queue is empty */
                 WriteTask task = (WriteTask) tasksQ.take();
@@ -57,10 +73,11 @@ public class Scheduler implements Runnable {
                 // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>",
                 // task.getClass().getName(),
                 // task.localClock, task.id));
-                
+
                 /* Here it only allows broadcasting once for each message */
                 if (task.getBcastCount() == 0)
                     task.bcastAcks();
+
                 /* Deliver the message when all replies received */
                 if (isAcked(task)) {
                     Thread taskThread = new Thread(task);
@@ -98,7 +115,7 @@ public class Scheduler implements Runnable {
     /**
      * Check if all replies for this message is received
      */
-    public boolean isAcked(TaskEntry task) {
+    public synchronized boolean isAcked(TaskEntry task) {
         String key = task.toString();
         if (!this.acksMap.containsKey(key) || Arrays.asList(this.acksMap.get(key)).contains(false))
             return false;
@@ -106,12 +123,13 @@ public class Scheduler implements Runnable {
     }
 
     /**
-     * Update the ack for the specified message represented by the key
-     *
+     * Update the ack for the specified message represented by the key. This method
+     * must be synchronized because it can be accessed by multiple threads
+     * 
      * @param ackReq an acknowledgement request
      * @return
      */
-    public Boolean[] updateAck(AckReq ackReq) {
+    public synchronized Boolean[] updateAck(AckReq ackReq) {
         String key = ackReq.getClock() + "." + ackReq.getId();
         if (!this.acksMap.containsKey(key)) {
             Boolean[] ackArr = new Boolean[ackLimit];
