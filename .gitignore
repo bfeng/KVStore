@@ -2,7 +2,9 @@
 *.class
 
 # Log file
-*.log
+# *.log
+*.lck
+
 
 # BlueJ files
 *.ctxt
@@ -24,3 +26,5 @@ hs_err_pid*
 
 .idea
 target
+
+*.DS_Store
