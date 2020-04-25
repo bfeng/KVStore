@@ -12,9 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.logging.Logger;
 
 public class KVClient {
@@ -134,27 +132,65 @@ public class KVClient {
         });
     }
 
+    void writeSync(String key, String value, CountDownLatch finishLatch) {
+        MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(masterChannel);
+        WriteReq writeReq = WriteReq.newBuilder().setKey(key).setVal(value).build();
+        WriteResp resp = stub.writeMsg(writeReq);
+        finishLatch.countDown();
+    }
+
     public void closeMasterChannel() throws InterruptedException {
         this.masterChannel.shutdown();
     }
-    
+
     public static void main(String[] args) throws InterruptedException {
         KVClient client = new KVClient(args[0], Integer.parseInt(args[1]));
         final CountDownLatch finishLatch = new CountDownLatch(client.reqList.size());
 
+        /*
+         * The code below uses asynchronous calls, which means all request are sent to Master at almost the same time.
+         * This will exhaust the hardware resources if the concurrency is too large.
+         *
+//        for (ReqContent req : client.reqList) {
+//            Thread.sleep(new Random().nextInt(2) * 1000);
+//            logger.info(String.format("%s:%s:%s:%s", req.getAct(), req.getKey(), req.getVal(), req.getOpt()));
+//            if (req.getAct() == 1) {
+//                client.write(req.getKey(), req.getVal(), finishLatch);
+//            }
+//        }
+         */
+
+        /*
+         * All threads in the pool are running concurrently. A synchronous call is wrapped in each thread.
+         * Threads are re-usable in the pool. If one request is sent to Master, another one is picked up.
+         * There are at most as many requests as the pool size to be sent to Master.
+         * So, the concurrency is limited by the pool size., which means it won't exhaust the hardware resources.
+         */
+        ExecutorService threadPool = Executors.newFixedThreadPool(16);
+        CompletionService<Integer> service = new ExecutorCompletionService<>(threadPool);
         for (ReqContent req : client.reqList) {
-            Thread.sleep(new Random().nextInt(2) * 1000);
-            logger.info(Integer.toString(req.getAct()) + ":" + req.getKey() + ":" + req.getVal() + ":"
-                    + Integer.toString(req.getOpt()));
+            logger.info(String.format("%s:%s:%s:%s", req.getAct(), req.getKey(), req.getVal(), req.getOpt()));
             if (req.getAct() == 1) {
-                client.write(req.getKey(), req.getVal(), finishLatch);
+                service.submit(() -> {
+                    client.writeSync(req.getKey(), req.getVal(), finishLatch);
+                    return 0;
+                });
             }
+        }
+        threadPool.shutdown();
+        try {
+            if (!threadPool.awaitTermination(30, TimeUnit.MINUTES)) {
+                threadPool.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            threadPool.shutdownNow();
+            Thread.currentThread().interrupt();
         }
 
         if (!finishLatch.await(1, TimeUnit.MINUTES)) {
             logger.warning("The client can not finish within 1 minutes");
         }
-        
+
         client.closeMasterChannel();
     }
 }
