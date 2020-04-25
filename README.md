@@ -21,3 +21,17 @@ mvn clean package
     ```shell script
     ./start-worker-1.sh
     ```
+    
+3. Worker 2
+    ```shell script
+    ./start-worker-2.sh
+    
+4. Generate test case
+python3 gen_test.py [number-of-requests]
+For example,
+```shell script
+python3 gen_test.py 100
+
+5. Run client
+    ```shell script
+    ./start-client.sh
