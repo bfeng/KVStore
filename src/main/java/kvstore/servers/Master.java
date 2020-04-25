@@ -34,6 +34,7 @@ public class Master extends ServerBase {
         this.port = getMasterConf().port;
         // The hashmap maintain the status of registered workers
         this.clusterStatus = new HashMap<>();
+        initStubs();
 
         /* Configure the logger to outpu the log into files */
         File logDir = new File("./logs/");

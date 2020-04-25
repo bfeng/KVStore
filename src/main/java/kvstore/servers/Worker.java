@@ -78,7 +78,7 @@ public class Worker extends ServerBase {
         // port));
 
         /* Start the scheduler */
-        // (new Thread(this.sche)).start();
+        (new Thread(this.sche)).start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             // Use stderr here since the logger may have been reset by its JVM shutdown
@@ -117,8 +117,8 @@ public class Worker extends ServerBase {
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
                     .setSenderClock(clock).build();
             BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
-            logger.info(String.format("<<<Worker[%d] --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
-                    writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
+            // logger.info(String.format("<<<Worker[%d] --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+            //         writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
         }
     }
 
@@ -175,7 +175,7 @@ public class Worker extends ServerBase {
                     worker.workerId, worker.getWorkerConf()));
 
             /* Enqueue a new write task */
-            // worker.sche.addTask(newWriteTASK);
+            worker.sche.addTask(newWriteTASK);
 
             /* Return */
             BcastResp resp = BcastResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -193,10 +193,10 @@ public class Worker extends ServerBase {
 
             /* Update clock compared with the sender */
             /* Update the clock for having updated the acknowledgement */
-            // worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
+            worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
 
             /* Updata the acks number for the specified message */
-            // Boolean[] ackArr = worker.sche.updateAck(request);
+            Boolean[] ackArr = worker.sche.updateAck(request);
 
             /* The below is for debugging */
             // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n

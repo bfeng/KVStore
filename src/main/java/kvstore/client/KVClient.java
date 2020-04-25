@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -142,6 +143,7 @@ public class KVClient {
         final CountDownLatch finishLatch = new CountDownLatch(client.reqList.size());
 
         for (ReqContent req : client.reqList) {
+            Thread.sleep(new Random().nextInt(1) * 1000);
             logger.info(Integer.toString(req.getAct()) + ":" + req.getKey() + ":" + req.getVal() + ":"
                     + Integer.toString(req.getOpt()));
             if (req.getAct() == 1) {
