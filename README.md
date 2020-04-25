@@ -27,6 +27,7 @@ mvn clean package
     ./start-worker-2.sh
     
 4. Generate test cases
+
 python3 gen_test.py [number-of-requests]
     ```shell script
     python3 gen_test.py 100
