@@ -34,3 +34,6 @@ mvn clean package
 5. Run client
     ```shell script
     ./start-client.sh
+
+
+Project requirement: http://homes.sice.indiana.edu/prateeks/ds/kv-project.html
