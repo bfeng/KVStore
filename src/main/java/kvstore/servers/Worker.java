@@ -1,5 +1,14 @@
 package kvstore.servers;
 
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+
+import io.grpc.Channel;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
@@ -11,26 +20,54 @@ import kvstore.consistency.SequentialScheduler;
 import kvstore.consistency.seqWriteTask;
 import kvstore.consistency.sortByScalarTime;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
-
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
     private final Map<String, String> dataStore = new ConcurrentHashMap<>();
     private SequentialScheduler sche;
+    private ManagedChannel masterChannel;
+    private ManagedChannel[] workerChannels;
+    private WorkerServiceGrpc.WorkerServiceBlockingStub[] workerStubs;
+    private WorkerServiceGrpc.WorkerServiceBlockingStub masterStub;
 
     public Worker(String configuration, int workerId) throws IOException {
         super(configuration);
         this.workerId = workerId;
         this.port = getWorkerConf().get(workerId).port;
+        initStubs();
         /* Currently passing a salar time comprator */
         this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
+    }
+
+    /**
+     * Initialize channesl to other workers
+     */
+    private void initStubs() {
+        /*
+         * Create an array of channels, and the index is corresponded with the worker id
+         */
+        this.masterChannel = ManagedChannelBuilder.forAddress(this.getMasterConf().ip, this.getMasterConf().port)
+                .usePlaintext().build();
+        this.masterStub = WorkerServiceGrpc.newBlockingStub(this.masterChannel);
+
+        this.workerChannels = new ManagedChannel[getWorkerConf().size()];
+        this.workerStubs = new WorkerServiceGrpc.WorkerServiceBlockingStub[getWorkerConf().size()];
+
+        for (int i = 0; i < getWorkerConf().size(); i++) {
+            ServerConfiguration sc = getWorkerConf().get(i);
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
+            this.workerStubs[i] = WorkerServiceGrpc.newBlockingStub(channel);
+            this.workerChannels[i] = channel;
+        }
+
+    }
+
+    private void shutdownAllChannels() {
+        this.masterChannel.shutdownNow();
+        for (int i = 0; i < getWorkerConf().size(); i++) {
+            this.workerChannels[i].shutdownNow();
+        }
     }
 
     @Override
@@ -41,13 +78,14 @@ public class Worker extends ServerBase {
         // port));
 
         /* Start the scheduler */
-        (new Thread(this.sche)).start();
+        // (new Thread(this.sche)).start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             // Use stderr here since the logger may have been reset by its JVM shutdown
             // hook.
             System.err.println("*** shutting down gRPC server since JVM is shutting down");
             try {
+                Worker.this.shutdownAllChannels();
                 Worker.this.reportStatusToMaster(ServerStatus.DOWN);
                 Worker.this.stop();
             } catch (InterruptedException e) {
@@ -62,33 +100,25 @@ public class Worker extends ServerBase {
      * Tell Master that I'm ready!
      */
     private void reportStatusToMaster(ServerStatus statusCode) {
-        ManagedChannel channel = ManagedChannelBuilder.forAddress(this.getMasterConf().ip, this.getMasterConf().port)
-                .usePlaintext().build();
-        MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(channel);
+        MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(this.masterChannel);
         WorkerStatus status = WorkerStatus.newBuilder().setWorkerId(workerId).setStatus(statusCode.getValue()).build();
         MasterResponse response = stub.reportStatus(status);
-        // logger.info(String.format("RPC: %d: Worker[%d] is registered with Master",
-        // response.getStatus(), workerId));
-        channel.shutdown();
+        logger.info(String.format("RPC: %d: Worker[%d] is registered with Master", response.getStatus(), workerId));
     }
 
     /**
      * Propagate the write rquest to other workers
      * 
+     * @throws InterruptedException
+     * 
      */
-    private void bcastWriteReq(WriteReq req, int clock) {
+    private void bcastWriteReq(WriteReq req, int clock) throws InterruptedException {
         for (int i = 0; i < getWorkerConf().size(); i++) {
-            ServerConfiguration sc = getWorkerConf().get(i);
-            ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
-            WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
                     .setSenderClock(clock).build();
-            BcastResp resp = stub.handleBcastWrite(writeReqBcast);
-            // logger.info(String.format("<<<Worker[%d] --broadcast
-            // Message[%d][%d]-->Worker[%d]>>>", workerId,
-            // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
-            // resp.getReceiver()));
-            channel.shutdown();
+            BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
+            logger.info(String.format("<<<Worker[%d] --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+                    writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
         }
     }
 
@@ -118,7 +148,11 @@ public class Worker extends ServerBase {
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             /* Update the clock for issuing a write operation */
             /* Broadcast the issued write operation */
-            worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
+            try {
+                worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
             /* Return */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -141,7 +175,7 @@ public class Worker extends ServerBase {
                     worker.workerId, worker.getWorkerConf()));
 
             /* Enqueue a new write task */
-            worker.sche.addTask(newWriteTASK);
+            // worker.sche.addTask(newWriteTASK);
 
             /* Return */
             BcastResp resp = BcastResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -159,10 +193,10 @@ public class Worker extends ServerBase {
 
             /* Update clock compared with the sender */
             /* Update the clock for having updated the acknowledgement */
-            worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
+            // worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
 
             /* Updata the acks number for the specified message */
-            Boolean[] ackArr = worker.sche.updateAck(request);
+            // Boolean[] ackArr = worker.sche.updateAck(request);
 
             /* The below is for debugging */
             // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n

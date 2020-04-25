@@ -19,11 +19,11 @@ import java.util.logging.SimpleFormatter;
 
 public class Master extends ServerBase {
     private static final Logger logger = Logger.getLogger(Master.class.getName());
-
     private final int port;
-
     private final Map<Integer, Integer> clusterStatus;
-    FileHandler fh;
+    private FileHandler fh;
+    private WorkerServiceGrpc.WorkerServiceBlockingStub[] workerStubs;
+    private ManagedChannel[] workerChannels;
 
     /**
      * The master constructor read the configuration to set up port
@@ -43,6 +43,29 @@ public class Master extends ServerBase {
         SimpleFormatter formatter = new SimpleFormatter();
         fh.setFormatter(formatter);
         Master.logger.addHandler(fh);
+    }
+
+    private void initStubs() {
+        /*
+         * Create an array of channels, and the index is corresponded with the worker id
+         */
+
+        this.workerChannels = new ManagedChannel[getWorkerConf().size()];
+        this.workerStubs = new WorkerServiceGrpc.WorkerServiceBlockingStub[getWorkerConf().size()];
+
+        for (int i = 0; i < getWorkerConf().size(); i++) {
+            ServerConfiguration sc = getWorkerConf().get(i);
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
+            this.workerStubs[i] = WorkerServiceGrpc.newBlockingStub(channel);
+            this.workerChannels[i] = channel;
+        }
+
+    }
+
+    private void shutdownAllChannels() {
+        for (int i = 0; i < getWorkerConf().size(); i++) {
+            this.workerChannels[i].shutdownNow();
+        }
     }
 
     /**
@@ -69,6 +92,7 @@ public class Master extends ServerBase {
             // hook.
             System.err.println("*** shutting down gRPC server since JVM is shutting down");
             try {
+                Master.this.shutdownAllChannels();
                 Master.this.stop();
             } catch (InterruptedException e) {
                 e.printStackTrace(System.err);
@@ -85,13 +109,7 @@ public class Master extends ServerBase {
      * @Todo: The returned status is only a mock return
      */
     private WriteResp sendWriteReq(int workerId, WriteReq req) throws InterruptedException {
-        ManagedChannel channel = ManagedChannelBuilder
-                .forAddress(getWorkerConf().get(workerId).ip, getWorkerConf().get(workerId).port).usePlaintext()
-                .build();
-        WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
-        WriteResp resp = stub.handleWrite(req);
-
-        channel.shutdown();
+        WriteResp resp = this.workerStubs[workerId].handleWrite(req);
         return resp;
     }
 
