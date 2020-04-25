@@ -184,9 +184,7 @@ public class Worker extends ServerBase {
         }
 
         /**
-         * The operations to the time stampe may be interleaved 1. update(1, 2) ->
-         * increment(2) -> update(3, 2) -> increment(4) 2. update() -> update() ->
-         * increment() -> increment()
+         * Handle acks by updating the current acks map
          */
         @Override
         public void handleAck(AckReq request, StreamObserver<AckResp> responseObserver) {
