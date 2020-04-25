@@ -143,7 +143,7 @@ public class KVClient {
         final CountDownLatch finishLatch = new CountDownLatch(client.reqList.size());
 
         for (ReqContent req : client.reqList) {
-            Thread.sleep(new Random().nextInt(1) * 1000);
+            Thread.sleep(new Random().nextInt(2) * 1000);
             logger.info(Integer.toString(req.getAct()) + ":" + req.getKey() + ":" + req.getVal() + ":"
                     + Integer.toString(req.getOpt()));
             if (req.getAct() == 1) {
