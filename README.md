@@ -8,32 +8,22 @@ mvn clean package
 
 ## Run
 
-1. Master
-    ```shell script
-    ./start-master.sh
-    ```
-2. Worker 0
-    ```shell script
-    ./start-worker-0.sh
-    ```
-   
-3. Worker 1
-    ```shell script
-    ./start-worker-1.sh
-    ```
-    
-3. Worker 2
-    ```shell script
-    ./start-worker-2.sh
-    
-4. Generate test cases
-    ```shell script
-    ./python3 gen_test.py 1000
-    ```
+```shell script
+KVStore % python3 test.py -h
+usage: test.py [-h] [--w W] [--t T] [--m {Sequential,Causal,Eventual,Linear}]
+Launch the kv store test
+optional arguments:
+  -h, --help            show this help message and exit
+  --w W                 the number of workers
+  --t T                 the number of requests
+  --m {Sequential,Causal,Eventual,Linear}
+                        the consistency model
+```
 
-5. Run client
-    ```shell script
-    ./start-client.sh
+## Check output
 
+```shell script
+KVStore % cd logs
+```
 
-Project requirement: http://homes.sice.indiana.edu/prateeks/ds/kv-project.html
+## [Project Requirement](http://homes.sice.indiana.edu/prateeks/ds/kv-project.html)
