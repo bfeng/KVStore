@@ -1,23 +1,16 @@
 package kvstore.consistency.schedulers;
 
-import kvstore.consistency.bases.Scheduler;
-import kvstore.consistency.bases.TaskEntry;
-import kvstore.consistency.tasks.seqWriteTask;
-import kvstore.servers.AckReq;
-import kvstore.servers.Worker;
-
-import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.FileHandler;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
+import kvstore.consistency.bases.Scheduler;
+import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.tasks.SeqWriteTask;
 import kvstore.servers.AckReq;
+import kvstore.servers.Worker;
 
 /**
  * All incoming operations are enqueue into a priority queue sorted by a
@@ -41,7 +34,7 @@ public class SequentialScheduler extends Scheduler {
      * @throws IOException
      * @throws SecurityException
      */
-    public SequentialScheduler(int ackLimit, int workerId, Comparator<TaskEntry> sortBy)
+    public SequentialScheduler(int ackLimit, Comparator<TaskEntry> sortBy)
             throws SecurityException, IOException {
         super(sortBy);
         /* A hashmap contains all happened acknowledgement */
@@ -61,7 +54,7 @@ public class SequentialScheduler extends Scheduler {
                 // testing purpose */
 
                 /* Taking a task from the queue. Block when the queue is empty */
-                seqWriteTask task = (seqWriteTask) tasksQ.take();
+                SeqWriteTask task = (SeqWriteTask) tasksQ.take();
 
                 /* For debugging */
                 // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>",
@@ -130,7 +123,7 @@ public class SequentialScheduler extends Scheduler {
      * @return
      */
     public synchronized Boolean[] updateAck(AckReq ackReq) {
-        String key = seqWriteTask.genTaskId(ackReq.getClock(), ackReq.getId());
+        String key = SeqWriteTask.genTaskId(ackReq.getClock(), ackReq.getId());
         if (!this.acksMap.containsKey(key)) {
             Boolean[] ackArr = new Boolean[ackLimit];
             Arrays.fill(ackArr, false);

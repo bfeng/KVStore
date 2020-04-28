@@ -15,6 +15,8 @@ import java.util.logging.Logger;
 
 public class BcastAckTask extends TaskEntry {
     private int senderId;
+    public int localClock;
+    public int id;
     private WorkerServiceBlockingStub[] workerStubs;
 
     /**
@@ -23,7 +25,8 @@ public class BcastAckTask extends TaskEntry {
      * @param senderId   the senderId who sends the ack
      */
     public BcastAckTask(int localClock, int id, int senderId, WorkerServiceBlockingStub[] workerStubs) {
-        super(localClock, id);
+        this.localClock = localClock;
+        this.id = id;
         this.workerStubs = workerStubs;
         this.senderId = senderId;
     }
@@ -49,6 +52,12 @@ public class BcastAckTask extends TaskEntry {
     public String getTaskId() {
         // TODO Auto-generated method stub
         return null;
+    }
+
+    @Override
+    public int minus(TaskEntry taskEntry) {
+        // TODO Auto-generated method stub
+        return 0;
     }
 
 }

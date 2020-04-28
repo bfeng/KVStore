@@ -15,12 +15,12 @@ import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.consistency.bases.Scheduler;
-import kvstore.consistency.comparators.sortByScalarTime;
+import kvstore.consistency.comparators.SeqSortBy;
 import kvstore.consistency.comparators.sortByVectorTime;
 import kvstore.consistency.schedulers.CausalScheduler;
 import kvstore.consistency.schedulers.SequentialScheduler;
 import kvstore.consistency.tasks.BcastAckTask;
-import kvstore.consistency.tasks.seqWriteTask;
+import kvstore.consistency.tasks.SeqWriteTask;
 
 public class Worker extends ServerBase {
     public static final Logger logger = Logger.getLogger(Worker.class.getName());
@@ -44,13 +44,13 @@ public class Worker extends ServerBase {
         logger.info(String.format("The input mode is %s", mode));
         switch (mode) {
             case "Sequential":
-                this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
+                this.sche = new SequentialScheduler(getWorkerConf().size(), new SeqSortBy());
                 break;
             case "Causal":
                 this.sche = new CausalScheduler(getWorkerConf().size(), workerId, new sortByVectorTime());
                 break;
             default:
-                this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
+                this.sche = new SequentialScheduler(getWorkerConf().size(), new SeqSortBy());
                 break;
         }
     }
@@ -211,7 +211,7 @@ public class Worker extends ServerBase {
                     worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
 
                     /* Create a new write task */
-                    seqWriteTask newWriteTASK = new seqWriteTask(request.getSenderClock(), request.getSender(),
+                    SeqWriteTask newWriteTASK = new SeqWriteTask(request.getSenderClock(), request.getSender(),
                             request.getRequest(), worker.dataStore);
 
                     /* Attach a bcastAckTask for this write task */
