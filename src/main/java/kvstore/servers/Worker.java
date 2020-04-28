@@ -16,28 +16,41 @@ import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.consistency.BcastAckTask;
+import kvstore.consistency.CausalScheduler;
+import kvstore.consistency.Scheduler;
 import kvstore.consistency.SequentialScheduler;
 import kvstore.consistency.seqWriteTask;
 import kvstore.consistency.sortByScalarTime;
+import kvstore.consistency.sortByVectorTime;
 
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
+    private final String mode;
     private final Map<String, String> dataStore = new ConcurrentHashMap<>();
-    private SequentialScheduler sche;
+    private Scheduler sche;
     private ManagedChannel masterChannel;
     private ManagedChannel[] workerChannels;
     private WorkerServiceGrpc.WorkerServiceBlockingStub[] workerStubs;
     private WorkerServiceGrpc.WorkerServiceBlockingStub masterStub;
 
-    public Worker(String configuration, int workerId) throws IOException {
+    public Worker(String configuration, int workerId, String mode) throws IOException {
         super(configuration);
         this.workerId = workerId;
+        this.mode = mode;
         this.port = getWorkerConf().get(workerId).port;
         initStubs();
-        /* Currently passing a salar time comprator */
-        this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
+        switch (mode) {
+            case "Sequential":
+                this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
+                break;
+            case "Causal":
+                this.sche = new CausalScheduler(workerId, new sortByVectorTime());
+            default:
+                this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
+                break;
+        }
     }
 
     /**
@@ -117,8 +130,10 @@ public class Worker extends ServerBase {
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
                     .setSenderClock(clock).build();
             BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
-            // logger.info(String.format("<<<Worker[%d] --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
-            //         writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
+            // logger.info(String.format("<<<Worker[%d]
+            // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+            // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
+            // resp.getReceiver()));
         }
     }
 
@@ -126,7 +141,7 @@ public class Worker extends ServerBase {
      * Main launches the server from the command line.
      */
     public static void main(String[] args) throws IOException, InterruptedException {
-        final Worker server = new Worker(args[0], Integer.parseInt(args[1]));
+        final Worker server = new Worker(args[0], Integer.parseInt(args[1]), args[2]);
         server.start();
         server.blockUntilShutdown();
     }
@@ -148,10 +163,17 @@ public class Worker extends ServerBase {
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             /* Update the clock for issuing a write operation */
             /* Broadcast the issued write operation */
-            try {
-                worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+            switch (worker.mode) {
+                case "Sequential":
+                    try {
+                        worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    ;
+                    break;
+                default:
+                    break;
             }
 
             /* Return */

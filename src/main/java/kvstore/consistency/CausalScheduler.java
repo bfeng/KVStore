@@ -3,9 +3,10 @@ package kvstore.consistency;
 import java.util.Comparator;
 
 public class CausalScheduler extends Scheduler {
-
-    public CausalScheduler(Comparator<TaskEntry> sortBy) {
+    private final int workerId;
+    public CausalScheduler(int workerId ,Comparator<TaskEntry> sortBy) {
         super(sortBy);
+        this.workerId = workerId;
         // TODO Auto-generated constructor stub
     }
 

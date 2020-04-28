@@ -29,8 +29,10 @@ def validate_sequential():
     keys = list(logs.keys())
     try:
         for i, j in combinations(keys, 2):
-            print(f'Check worker {i} and worke {j}...')
-            assert logs[i] == logs[j]
+            res = logs[i] == logs[j]
+            print(f'Check worker {i} and worke {j}...{res}')
+            if not res:
+                raise AssertionError
         print("The output obyes the sequential consistency")
     except AssertionError:
         print("The output doesn't obey the sequential consistency")
