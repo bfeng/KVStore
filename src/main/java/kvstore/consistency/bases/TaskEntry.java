@@ -1,8 +1,8 @@
-package kvstore.consistency;
+package kvstore.consistency.bases;
 
 public abstract class TaskEntry implements Runnable {
-    int localClock;
-    int id;
+    public int localClock;
+    public int id;
 
     public TaskEntry(int localClock, int id) {
         this.localClock = localClock;

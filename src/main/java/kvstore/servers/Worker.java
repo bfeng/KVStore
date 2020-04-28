@@ -2,29 +2,25 @@ package kvstore.servers;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
-import io.grpc.Channel;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
-import kvstore.consistency.BcastAckTask;
-import kvstore.consistency.CausalScheduler;
-import kvstore.consistency.Scheduler;
-import kvstore.consistency.SequentialScheduler;
-import kvstore.consistency.seqWriteTask;
-import kvstore.consistency.sortByScalarTime;
-import kvstore.consistency.sortByVectorTime;
+import kvstore.consistency.bases.Scheduler;
+import kvstore.consistency.comparators.sortByScalarTime;
+import kvstore.consistency.comparators.sortByVectorTime;
+import kvstore.consistency.schedulers.CausalScheduler;
+import kvstore.consistency.schedulers.SequentialScheduler;
+import kvstore.consistency.tasks.BcastAckTask;
+import kvstore.consistency.tasks.seqWriteTask;
 
 public class Worker extends ServerBase {
     public static final Logger logger = Logger.getLogger(Worker.class.getName());

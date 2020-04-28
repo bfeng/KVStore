@@ -1,5 +1,8 @@
-package kvstore.consistency;
+package kvstore.consistency.schedulers;
 
+import kvstore.consistency.bases.Scheduler;
+import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.tasks.seqWriteTask;
 import kvstore.servers.AckReq;
 import kvstore.servers.Worker;
 
@@ -128,7 +131,6 @@ public class SequentialScheduler extends Scheduler {
      */
     public synchronized Boolean[] updateAck(AckReq ackReq) {
         String key = seqWriteTask.genTaskId(ackReq.getClock(), ackReq.getId());
-        // String key = ackReq.getClock() + "." + ackReq.getId();
         if (!this.acksMap.containsKey(key)) {
             Boolean[] ackArr = new Boolean[ackLimit];
             Arrays.fill(ackArr, false);

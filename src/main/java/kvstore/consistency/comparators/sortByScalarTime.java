@@ -1,6 +1,8 @@
-package kvstore.consistency;
+package kvstore.consistency.comparators;
 
 import java.util.Comparator;
+
+import kvstore.consistency.bases.TaskEntry;
 
 public class sortByScalarTime implements Comparator<TaskEntry> {
 

@@ -1,4 +1,4 @@
-package kvstore.consistency;
+package kvstore.consistency.bases;
 
 import java.util.Comparator;
 import java.util.concurrent.PriorityBlockingQueue;

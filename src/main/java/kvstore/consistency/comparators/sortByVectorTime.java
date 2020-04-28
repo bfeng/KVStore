@@ -1,4 +1,4 @@
-package kvstore.consistency;
+package kvstore.consistency.comparators;
 
 import java.util.Comparator;
 

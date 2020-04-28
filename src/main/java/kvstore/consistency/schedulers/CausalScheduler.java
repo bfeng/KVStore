@@ -1,8 +1,11 @@
-package kvstore.consistency;
+package kvstore.consistency.schedulers;
 
 import java.util.Comparator;
 import java.util.Vector;
 import java.util.logging.Logger;
+
+import kvstore.consistency.bases.Scheduler;
+import kvstore.consistency.bases.TaskEntry;
 
 public class CausalScheduler extends Scheduler {
     private static final Logger logger = Logger.getLogger(CausalScheduler.class.getName());

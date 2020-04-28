@@ -1,7 +1,8 @@
-package kvstore.consistency;
+package kvstore.consistency.tasks;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import kvstore.consistency.bases.TaskEntry;
 import kvstore.servers.AckReq;
 import kvstore.servers.AckResp;
 import kvstore.servers.Worker;

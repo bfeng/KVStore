@@ -1,9 +1,10 @@
-package kvstore.consistency;
+package kvstore.consistency.tasks;
 
 import java.util.Map;
 import java.util.logging.Logger;
 
 import kvstore.common.WriteReq;
+import kvstore.consistency.bases.TaskEntry;
 import kvstore.servers.Worker;
 
 public class seqWriteTask extends TaskEntry {
@@ -77,7 +78,9 @@ public class seqWriteTask extends TaskEntry {
         // Message[%d][%d]:key=%s,val=%s>>>>>>>>>>>", localClock, id,
         // writeReq.getKey(), writeReq.getVal()));
     }
-
+    /**
+     * Get the task id (i.e. logictime + id)
+    */
     @Override
     public String getTaskId() {
         StringBuilder strBuilder = new StringBuilder();
@@ -85,6 +88,9 @@ public class seqWriteTask extends TaskEntry {
         return strBuilder.toString();
     }
 
+    /**
+     * Generate a task id from the input
+    */
     public static String genTaskId(int localClock, int id) {
         StringBuilder strBuilder = new StringBuilder();
         strBuilder.append(localClock).append(".").append(id);
