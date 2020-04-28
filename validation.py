@@ -1,7 +1,7 @@
 import glob
 from pathlib import Path
 import re
-from itertools import product
+from itertools import combinations
 import argparse
 
 def set_up_arg_parser():
@@ -28,7 +28,8 @@ def validate_sequential():
     # print(logs)
     keys = list(logs.keys())
     try:
-        for i, j in product(keys, keys):
+        for i, j in combinations(keys, 2):
+            print(f'Check worker {i} and worke {j}...')
             assert logs[i] == logs[j]
         print("The output obyes the sequential consistency")
     except AssertionError:
