@@ -6,7 +6,7 @@ import argparse
 
 def set_up_arg_parser():
     parser = argparse.ArgumentParser(description='validate the result')
-    parser.add_argument('--m', type=str, choices=['Sequential', 'Causal', 'Eventual', 'Linear'],
+    parser.add_argument('-m', type=str, choices=['Sequential', 'Causal', 'Eventual', 'Linear'],
                         help='the consistency model')
     return parser
 

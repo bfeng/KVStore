@@ -41,12 +41,14 @@ public class Worker extends ServerBase {
         this.mode = mode;
         this.port = getWorkerConf().get(workerId).port;
         initStubs();
+        logger.info(String.format("The input mode is %s", mode));
         switch (mode) {
             case "Sequential":
                 this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
                 break;
             case "Causal":
-                this.sche = new CausalScheduler(workerId, new sortByVectorTime());
+                this.sche = new CausalScheduler(getWorkerConf().size(), workerId, new sortByVectorTime());
+                break;
             default:
                 this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
                 break;
@@ -172,6 +174,13 @@ public class Worker extends ServerBase {
                     }
                     ;
                     break;
+                case "Causal":
+                    try {
+                        worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    break;
                 default:
                     break;
             }
@@ -184,20 +193,30 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            /* Update clock by comparing with the sender */
-            /* Update clock for having received the broadcasted message */
-            worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
+            switch (worker.mode) {
+                case "Sequential":
+                    /* Update clock by comparing with the sender */
+                    /* Update clock for having received the broadcasted message */
+                    worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
 
-            /* Create a new write task */
-            seqWriteTask newWriteTASK = new seqWriteTask(request.getSenderClock(), request.getSender(),
-                    request.getRequest(), worker.dataStore);
+                    /* Create a new write task */
+                    seqWriteTask newWriteTASK = new seqWriteTask(request.getSenderClock(), request.getSender(),
+                            request.getRequest(), worker.dataStore);
 
-            /* Attach a bcastAckTask for this write task */
-            newWriteTASK.setBcastAckTask(new BcastAckTask(request.getSenderClock(), request.getSender(),
-                    worker.workerId, worker.getWorkerConf()));
+                    /* Attach a bcastAckTask for this write task */
+                    newWriteTASK.setBcastAckTask(new BcastAckTask(request.getSenderClock(), request.getSender(),
+                            worker.workerId, worker.getWorkerConf()));
 
-            /* Enqueue a new write task */
-            worker.sche.addTask(newWriteTASK);
+                    /* Enqueue a new write task */
+                    worker.sche.addTask(newWriteTASK);
+                    break;
+
+                case "Causal":
+                    break;
+
+                default:
+                    break;
+            }
 
             /* Return */
             BcastResp resp = BcastResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
@@ -216,7 +235,7 @@ public class Worker extends ServerBase {
             worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
 
             /* Updata the acks number for the specified message */
-            Boolean[] ackArr = worker.sche.updateAck(request);
+            Boolean[] ackArr = ((SequentialScheduler) (worker.sche)).updateAck(request);
 
             /* The below is for debugging */
             // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n

@@ -10,11 +10,11 @@ import socket
 
 def set_up_arg_parser():
     parser = argparse.ArgumentParser(description='Launch the kv store test')
-    parser.add_argument('--w', type=int,
+    parser.add_argument('-w', type=int,
                         help='the number of workers')
-    parser.add_argument('--t', type=int,
+    parser.add_argument('-t', type=int,
                         help='the number of requests')
-    parser.add_argument('--m', type=str, choices=['Sequential', 'Causal', 'Eventual', 'Linear'],
+    parser.add_argument('-m', type=str, choices=['Sequential', 'Causal', 'Eventual', 'Linear'],
                         help='the consistency model')
     return parser
 
@@ -67,6 +67,9 @@ def gen_workers_config(worker_num, ports):
 
 
 def launch(worker_num, mode):
+    # Compile before preceeding
+    run(['mvn', 'clean', 'package'])
+
     pool = []
     master = Popen(['java', '-cp', 'target/KVStore-1.0-SNAPSHOT-jar-with-dependencies.jar',
                     'kvstore.servers.Master', 'src/main/resources/servers.conf'])

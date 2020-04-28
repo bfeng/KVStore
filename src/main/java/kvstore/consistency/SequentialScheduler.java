@@ -84,8 +84,6 @@ public class SequentialScheduler extends Scheduler {
                     task.abortBcastAckTask();
                     deleteAckArr(task.toString());
 
-                    logger.info(String.format("Queue: %d, Map %d", tasksQ.size(), acksMap.size()));
-
                     Thread taskThread = new Thread(task);
                     taskThread.start();
                     taskThread.join();

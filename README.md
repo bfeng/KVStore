@@ -14,9 +14,9 @@ usage: test.py [-h] [--w W] [--t T] [--m {Sequential,Causal,Eventual,Linear}]
 Launch the kv store test
 optional arguments:
   -h, --help            show this help message and exit
-  --w W                 the number of workers
-  --t T                 the number of requests
-  --m {Sequential,Causal,Eventual,Linear}
+  -w W                 the number of workers
+  -t T                 the number of requests
+  -m {Sequential,Causal,Eventual,Linear}
                         the consistency model
 ```
 
@@ -24,13 +24,13 @@ optional arguments:
 
 ```shell script
 KVStore % python3 validation.py -h
-usage: validation.py [-h] [--m {Sequential,Causal,Eventual,Linear}]
+usage: validation.py [-h] [-m {Sequential,Causal,Eventual,Linear}]
 
 validate the result
 
 optional arguments:
   -h, --help            show this help message and exit
-  --m {Sequential,Causal,Eventual,Linear}
+  -m {Sequential,Causal,Eventual,Linear}
                         the consistency model
 ```
 

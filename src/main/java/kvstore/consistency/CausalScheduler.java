@@ -1,13 +1,31 @@
 package kvstore.consistency;
 
 import java.util.Comparator;
+import java.util.Vector;
+import java.util.logging.Logger;
 
 public class CausalScheduler extends Scheduler {
+    private static final Logger logger = Logger.getLogger(CausalScheduler.class.getName());
     private final int workerId;
-    public CausalScheduler(int workerId ,Comparator<TaskEntry> sortBy) {
+    private Vector<Vector<Integer>> timeStamp;
+
+    public CausalScheduler(int worker_size, int workerId, Comparator<TaskEntry> sortBy) {
         super(sortBy);
         this.workerId = workerId;
-        // TODO Auto-generated constructor stub
+        initTimeStamp(worker_size);
+        logger.info(String.format("%s", this.timeStamp.toString()));
+
+    }
+
+    private void initTimeStamp(int size) {
+        this.timeStamp = new Vector<>(size);
+        for (int i = 0; i < size; i++) {
+            Vector<Integer> r = new Vector<Integer>(size);
+            for (int j = 0; j < size; j++) {
+                r.add(0);
+            }
+            this.timeStamp.add(r);
+        }
     }
 
     @Override
