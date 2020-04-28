@@ -2,6 +2,13 @@ import glob
 from pathlib import Path
 import re
 from itertools import product
+import argparse
+
+def set_up_arg_parser():
+    parser = argparse.ArgumentParser(description='validate the result')
+    parser.add_argument('--m', type=str, choices=['Sequential', 'Causal', 'Eventual', 'Linear'],
+                        help='the consistency model')
+    return parser
 
 def read_logs(path):
     logs = {}
@@ -27,5 +34,11 @@ def validate_sequential():
     except AssertionError:
         print("The output doesn't obey the sequential consistency")
 
+def validate(mode):
+    if mode == 'Sequential':
+        validate_sequential()
+
 if __name__ == "__main__":
-    validate_sequential()
+    parser = set_up_arg_parser()
+    args = parser.parse_args()
+    validate(args.m)

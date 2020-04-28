@@ -20,10 +20,18 @@ optional arguments:
                         the consistency model
 ```
 
-## Check output
+## Validate the Consistency
 
 ```shell script
-KVStore % cd logs
+KVStore % python3 validation.py -h
+usage: validation.py [-h] [--m {Sequential,Causal,Eventual,Linear}]
+
+validate the result
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --m {Sequential,Causal,Eventual,Linear}
+                        the consistency model
 ```
 
 ## [Project Requirement](http://homes.sice.indiana.edu/prateeks/ds/kv-project.html)
