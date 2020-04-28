@@ -8,7 +8,9 @@ import java.util.logging.FileHandler;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
-import kvstore.consistency.tasks.SeqWriteTask;
+import kvstore.consistency.bases.Timestamp;
+import kvstore.consistency.comparators.ScalarTimestamp;
+import kvstore.consistency.tasks.WriteTask;
 import kvstore.servers.AckReq;
 import kvstore.servers.Worker;
 
@@ -54,7 +56,7 @@ public class SequentialScheduler extends Scheduler {
                 // testing purpose */
 
                 /* Taking a task from the queue. Block when the queue is empty */
-                SeqWriteTask task = (SeqWriteTask) tasksQ.take();
+                WriteTask task = (WriteTask) tasksQ.take();
 
                 /* For debugging */
                 // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>",
@@ -73,7 +75,7 @@ public class SequentialScheduler extends Scheduler {
                     Thread taskThread = new Thread(task);
                     taskThread.start();
                     taskThread.join();
-                    Worker.logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", task.localClock, task.id));
+                    Worker.logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", ((ScalarTimestamp)(task.ts)).localClock, ((ScalarTimestamp)(task.ts)).id));
 
                 } else {
 
@@ -122,15 +124,15 @@ public class SequentialScheduler extends Scheduler {
      * @param ackReq an acknowledgement request
      * @return
      */
-    public synchronized Boolean[] updateAck(AckReq ackReq) {
-        String key = SeqWriteTask.genTaskId(ackReq.getClock(), ackReq.getId());
+    public synchronized Boolean[] updateAck(Timestamp ts, int sender) {
+        String key = ts.genKey();
         if (!this.acksMap.containsKey(key)) {
             Boolean[] ackArr = new Boolean[ackLimit];
             Arrays.fill(ackArr, false);
             this.acksMap.put(key, ackArr);
-            this.acksMap.get(key)[ackReq.getSender()] = true;
+            this.acksMap.get(key)[sender] = true;
         } else {
-            this.acksMap.get(key)[ackReq.getSender()] = true;
+            this.acksMap.get(key)[sender] = true;
         }
         return this.acksMap.get(key);
     }

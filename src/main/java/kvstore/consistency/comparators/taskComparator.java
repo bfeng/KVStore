@@ -4,7 +4,7 @@ import java.util.Comparator;
 
 import kvstore.consistency.bases.TaskEntry;
 
-public class SeqSortBy implements Comparator<TaskEntry> {
+public class taskComparator implements Comparator<TaskEntry> {
 
     @Override
     public int compare(TaskEntry o1, TaskEntry o2) {

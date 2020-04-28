@@ -4,9 +4,10 @@ import java.util.Map;
 
 import kvstore.common.WriteReq;
 import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.bases.Timestamp;
 import kvstore.servers.Worker;
 
-public class SeqWriteTask extends TaskEntry {
+public class WriteTask extends TaskEntry {
     private WriteReq writeReq;
     private Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
@@ -22,9 +23,8 @@ public class SeqWriteTask extends TaskEntry {
      * @param writeReq   the write reqest sent by the master
      * @param dataStore  the reference to the data store of the current worker
      */
-    public SeqWriteTask(int localClock, int id, WriteReq writeReq, Map<String, String> dataStore) {
-        this.localClock = localClock;
-        this.id = id;
+    public WriteTask(Timestamp ts, WriteReq writeReq, Map<String, String> dataStore) {
+        this.ts = ts;
         this.writeReq = writeReq;
         this.dataStore = dataStore;
         this.bcastAckTask = null;
@@ -85,27 +85,13 @@ public class SeqWriteTask extends TaskEntry {
      */
     @Override
     public String getTaskId() {
-        StringBuilder strBuilder = new StringBuilder();
-        strBuilder.append(this.localClock).append(".").append(this.id);
-        return strBuilder.toString();
+        return this.ts.genKey();
     }
 
-    /**
-     * Generate a task id from the input
-     */
-    public static String genTaskId(int localClock, int id) {
-        StringBuilder strBuilder = new StringBuilder();
-        strBuilder.append(localClock).append(".").append(id);
-        return strBuilder.toString();
-    }
 
     @Override
     public int minus(TaskEntry taskEntry) {
-        SeqWriteTask seqWriteTask = (SeqWriteTask) taskEntry;
-        if (this.localClock != seqWriteTask.localClock) {
-            return this.localClock - seqWriteTask.localClock;
-        } else {
-            return this.id - seqWriteTask.id;
-        }
+        WriteTask seqWriteTask = (WriteTask) taskEntry;
+        return (this.ts.minus(seqWriteTask.ts));
     }
 }

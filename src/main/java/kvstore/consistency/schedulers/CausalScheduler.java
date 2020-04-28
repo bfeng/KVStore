@@ -9,13 +9,10 @@ import kvstore.consistency.bases.TaskEntry;
 import kvstore.servers.Worker;
 
 public class CausalScheduler extends Scheduler {
-    private final int workerId;
-    public int globalClock; /* A scheduler would maintain a logic clock */
     private Vector<Vector<Integer>> timeStamp;
 
-    public CausalScheduler(int worker_size, int workerId, Comparator<TaskEntry> sortBy) {
+    public CausalScheduler(int worker_size, Comparator<TaskEntry> sortBy) {
         super(sortBy);
-        this.workerId = workerId;
         initTimeStamp(worker_size);
         Worker.logger.info(String.format("%s", this.timeStamp.toString()));
 
