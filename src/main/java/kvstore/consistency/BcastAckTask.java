@@ -6,24 +6,24 @@ import kvstore.servers.AckReq;
 import kvstore.servers.AckResp;
 import kvstore.servers.Worker;
 import kvstore.servers.WorkerServiceGrpc;
+import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 public class BcastAckTask extends TaskEntry {
-    private static final Logger logger = Logger.getLogger(BcastAckTask.class.getName());
-    private List<Worker.ServerConfiguration> workerConf;
     private int senderId;
+    private WorkerServiceBlockingStub[] workerStubs;
 
     /**
      * @param localClock the clock of the message to acknowledge
      * @param id         the id of the message to acknowledge
      * @param senderId   the senderId who sends the ack
      */
-    public BcastAckTask(int localClock, int id, int senderId, List<Worker.ServerConfiguration> workerConf) {
+    public BcastAckTask(int localClock, int id, int senderId, WorkerServiceBlockingStub[] workerStubs) {
         super(localClock, id);
-        this.workerConf = workerConf;
+        this.workerStubs = workerStubs;
         this.senderId = senderId;
     }
 
@@ -33,20 +33,21 @@ public class BcastAckTask extends TaskEntry {
     @Override
     public void run() {
         /* Send acks including the self */
-        for (int i = 0; i < workerConf.size(); i++) {
-            Worker.ServerConfiguration sc = this.workerConf.get(i);
-            ManagedChannel channel = ManagedChannelBuilder.forAddress(sc.ip, sc.port).usePlaintext().build();
-            WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
-
+        for (int i = 0; i < this.workerStubs.length; i++) {
             AckReq request = AckReq.newBuilder().setClock(localClock).setId(id).setReceiver(i).setSender(senderId)
                     .build();
-            AckResp resp = stub.handleAck(request);
+            AckResp resp = this.workerStubs[i].handleAck(request);
 
             /* For debugging */
-            // logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId, request.getClock(),
-            //         request.getId(), i));
-            channel.shutdown();
+            Worker.logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId,
+                    request.getClock(), request.getId(), i));
         }
+    }
+
+    @Override
+    public String getTaskId() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

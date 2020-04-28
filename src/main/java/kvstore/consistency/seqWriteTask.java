@@ -4,9 +4,9 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import kvstore.common.WriteReq;
+import kvstore.servers.Worker;
 
 public class seqWriteTask extends TaskEntry {
-    private static final Logger logger = Logger.getLogger(seqWriteTask.class.getName());
     private WriteReq writeReq;
     private Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
@@ -49,7 +49,7 @@ public class seqWriteTask extends TaskEntry {
         if (bcastAckTask != null) {
             (new Thread(bcastAckTask)).start();
         } else {
-            logger.warning("No bcast task for this message");
+            Worker.logger.warning("No bcast task for this message");
             return;
         }
     }
@@ -76,5 +76,18 @@ public class seqWriteTask extends TaskEntry {
         // logger.info(String.format("<<<<<<<<<<<Deliver
         // Message[%d][%d]:key=%s,val=%s>>>>>>>>>>>", localClock, id,
         // writeReq.getKey(), writeReq.getVal()));
+    }
+
+    @Override
+    public String getTaskId() {
+        StringBuilder strBuilder = new StringBuilder();
+        strBuilder.append(this.localClock).append(".").append(this.id);
+        return strBuilder.toString();
+    }
+
+    public static String genTaskId(int localClock, int id) {
+        StringBuilder strBuilder = new StringBuilder();
+        strBuilder.append(localClock).append(".").append(id);
+        return strBuilder.toString();
     }
 }

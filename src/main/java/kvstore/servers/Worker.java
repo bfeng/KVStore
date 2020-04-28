@@ -1,12 +1,15 @@
 package kvstore.servers;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import io.grpc.Channel;
 import io.grpc.ManagedChannel;
@@ -24,7 +27,7 @@ import kvstore.consistency.sortByScalarTime;
 import kvstore.consistency.sortByVectorTime;
 
 public class Worker extends ServerBase {
-    private static final Logger logger = Logger.getLogger(Worker.class.getName());
+    public static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
     private final String mode;
@@ -41,6 +44,7 @@ public class Worker extends ServerBase {
         this.mode = mode;
         this.port = getWorkerConf().get(workerId).port;
         initStubs();
+        initLogger();
         logger.info(String.format("The input mode is %s", mode));
         switch (mode) {
             case "Sequential":
@@ -53,6 +57,17 @@ public class Worker extends ServerBase {
                 this.sche = new SequentialScheduler(getWorkerConf().size(), workerId, new sortByScalarTime());
                 break;
         }
+    }
+
+    private void initLogger() throws SecurityException, IOException {
+        /* Configure the logger to outpu the log into files */
+        File logDir = new File("./logs/");
+        if (!logDir.exists())
+            logDir.mkdir();
+        FileHandler fh = new FileHandler("logs/worker_" + workerId + ".log");
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+        logger.addHandler(fh);
     }
 
     /**
@@ -205,7 +220,7 @@ public class Worker extends ServerBase {
 
                     /* Attach a bcastAckTask for this write task */
                     newWriteTASK.setBcastAckTask(new BcastAckTask(request.getSenderClock(), request.getSender(),
-                            worker.workerId, worker.getWorkerConf()));
+                            worker.workerId, worker.workerStubs));
 
                     /* Enqueue a new write task */
                     worker.sche.addTask(newWriteTASK);

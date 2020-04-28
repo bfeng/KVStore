@@ -4,14 +4,12 @@ public abstract class TaskEntry implements Runnable {
     int localClock;
     int id;
 
-    @Override
-    public void run() {
-    }
-
     public TaskEntry(int localClock, int id) {
         this.localClock = localClock;
         this.id = id;
     }
+
+    abstract public String getTaskId();
 
     @Override
     public String toString() {

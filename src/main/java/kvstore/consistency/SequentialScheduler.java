@@ -1,6 +1,7 @@
 package kvstore.consistency;
 
 import kvstore.servers.AckReq;
+import kvstore.servers.Worker;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,7 +22,6 @@ import kvstore.servers.AckReq;
  * queue starting the task if allowed.
  */
 public class SequentialScheduler extends Scheduler {
-    private static final Logger logger = Logger.getLogger(SequentialScheduler.class.getName());
     private ConcurrentHashMap<String, Boolean[]> acksMap;
     private int ackLimit;
     public int globalClock; /* A scheduler would maintain a logic clock */
@@ -45,16 +45,6 @@ public class SequentialScheduler extends Scheduler {
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(1024);
         this.ackLimit = ackLimit;
         this.globalClock = 0;
-
-        /* Configure the logger to outpu the log into files */
-        File logDir = new File("./logs/");
-        if (!logDir.exists())
-            logDir.mkdir();
-        fh = new FileHandler("logs/worker_" + workerId + ".log");
-        SimpleFormatter formatter = new SimpleFormatter();
-        fh.setFormatter(formatter);
-        SequentialScheduler.logger.addHandler(fh);
-
     }
 
     /**
@@ -82,18 +72,18 @@ public class SequentialScheduler extends Scheduler {
                 /* Deliver the message when all replies received */
                 if (ifAllowDeliver(task)) {
                     task.abortBcastAckTask();
-                    deleteAckArr(task.toString());
+                    deleteAckArr(task.getTaskId());
 
                     Thread taskThread = new Thread(task);
                     taskThread.start();
                     taskThread.join();
-                    logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", task.localClock, task.id));
+                    Worker.logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", task.localClock, task.id));
 
                 } else {
 
                     tasksQ.put(task); /* Put back the task for rescheduling */
 
-                    /* For debugging */
+                    // /* For debugging */
                     // logger.info(String.format("<<<Message[%d][%d] Blocked! Current ack
                     // array:%s>>>", task.localClock,
                     // task.id, Arrays.toString(this.acksMap.get(task.toString()))));
@@ -111,10 +101,10 @@ public class SequentialScheduler extends Scheduler {
      */
     public TaskEntry addTask(TaskEntry newTask) {
         tasksQ.put(newTask); /* Put the taks to the priority queue */
-        if (!this.acksMap.containsKey(newTask.toString())) {
+        if (!this.acksMap.containsKey(newTask.getTaskId())) {
             Boolean[] ackArr = new Boolean[ackLimit];
             Arrays.fill(ackArr, false);
-            this.acksMap.put(newTask.toString(), ackArr);
+            this.acksMap.put(newTask.getTaskId(), ackArr);
         }
         return newTask;
     }
@@ -123,7 +113,7 @@ public class SequentialScheduler extends Scheduler {
      * Check if all replies for this message is received
      */
     public synchronized boolean ifAllowDeliver(TaskEntry task) {
-        String key = task.toString();
+        String key = task.getTaskId();
         if (!this.acksMap.containsKey(key) || Arrays.asList(this.acksMap.get(key)).contains(false))
             return false;
         return true;
@@ -137,7 +127,8 @@ public class SequentialScheduler extends Scheduler {
      * @return
      */
     public synchronized Boolean[] updateAck(AckReq ackReq) {
-        String key = ackReq.getClock() + "." + ackReq.getId();
+        String key = seqWriteTask.genTaskId(ackReq.getClock(), ackReq.getId());
+        // String key = ackReq.getClock() + "." + ackReq.getId();
         if (!this.acksMap.containsKey(key)) {
             Boolean[] ackArr = new Boolean[ackLimit];
             Arrays.fill(ackArr, false);
