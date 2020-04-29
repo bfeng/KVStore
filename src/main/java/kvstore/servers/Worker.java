@@ -211,8 +211,7 @@ public class Worker extends ServerBase {
 
                 /* Create a new write task */
                 ScalarTimestamp ts = new ScalarTimestamp(request.getSenderClock(), request.getSender());
-                WriteTask<ScalarTimestamp> newWriteTASK = new WriteTask<ScalarTimestamp>(ts, request.getRequest(),
-                        worker.dataStore);
+                WriteTask<ScalarTimestamp> newWriteTASK = new WriteTask<ScalarTimestamp>(ts, request, worker.dataStore);
 
                 /* Attach a bcastAckTask for this write task */
                 newWriteTASK.setBcastAckTask(new BcastAckTask(ts, worker.workerId, worker.workerStubs));
@@ -224,7 +223,7 @@ public class Worker extends ServerBase {
                 /* Create a new write task */
                 VectorTimestamp vts = new VectorTimestamp(worker.workerId);
                 vts.value = new Vector<Integer>(request.getVtsList());
-                WriteTask<VectorTimestamp> newWriteTASK = new WriteTask<VectorTimestamp>(vts, request.getRequest(),
+                WriteTask<VectorTimestamp> newWriteTASK = new WriteTask<VectorTimestamp>(vts, request,
                         worker.dataStore);
                 /* Enqueue a new write task */
                 worker.causalSche.addTask(newWriteTASK);

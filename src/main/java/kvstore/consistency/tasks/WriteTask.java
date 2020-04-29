@@ -6,13 +6,14 @@ import kvstore.common.WriteReq;
 import kvstore.consistency.bases.TaskEntry;
 import kvstore.consistency.bases.Timestamp;
 import kvstore.servers.Worker;
+import kvstore.servers.WriteReqBcast;
 /**
  * TaskEntry<ScalarTimestamp>
  *      ↓
  * WritTask<ScalarTimestamp> Acceptable for sequentialScheduler
 */
 public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
-    private WriteReq writeReq;
+    private WriteReqBcast writeReqBcast;
     private Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
     private int bcastCount;
@@ -23,13 +24,12 @@ public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
      * A runable class for implementing writing to the data store
      * 
      * @param localClock the clock when issues the write task
-     * @param id         the id of the woker which creates the task
      * @param writeReq   the write reqest sent by the master
      * @param dataStore  the reference to the data store of the current worker
      */
-    public WriteTask(T ts, WriteReq writeReq, Map<String, String> dataStore) {
+    public WriteTask(T ts, WriteReqBcast writeReqBcast, Map<String, String> dataStore) {
         super(ts);
-        this.writeReq = writeReq;
+        this.writeReqBcast = writeReqBcast;
         this.dataStore = dataStore;
         this.bcastAckTask = null;
         this.bcastCount = 0;

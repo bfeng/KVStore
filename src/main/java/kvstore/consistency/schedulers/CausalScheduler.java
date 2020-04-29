@@ -2,7 +2,6 @@ package kvstore.consistency.schedulers;
 
 import java.util.Iterator;
 import java.util.Vector;
-import java.util.stream.IntStream;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
@@ -44,16 +43,31 @@ public class CausalScheduler extends Scheduler<VectorTimestamp> {
     }
 
     /**
+     * [1 1 0 1]
+     * [2 1 0 1]
+    */
+    private boolean checkConditions(VectorTimestamp expectedVts) {
+        VectorTimestamp currentVts = this.globalTs;
+        return (expectedVts.value.get(this.workerId) == currentVts.value.get(this.workerId) + 1) && true;
+    }
+
+    /**
      * Allow only when the task is the next expected (e.g., [1 0 0 0] is the next
      * expected for [0 0 0 0])
      */
     @Override
     public synchronized boolean ifAllowDeliver(TaskEntry<VectorTimestamp> task) {
-        // int thisSum = this.globalTs.value.stream().mapToInt(Integer::intValue).sum();
-        // int thatSum = task.ts.value.stream().mapToInt(Integer::intValue).sum();
-        // if (thatSum - thisSum == 1) {
-        //     return true;
-        // }
+        Iterator<TaskEntry<VectorTimestamp>> itr = this.tasksQ.iterator();
+        TaskEntry<VectorTimestamp> expectedTask;
+        VectorTimestamp expectedVts;
+
+        while (itr.hasNext()) {
+            expectedTask = itr.next();
+            expectedVts = expectedTask.ts;
+            // if (expectedVts.value.get(this.workerId) == currentVts.value.get() ) {
+
+            // }
+        }
         return false;
     }
 
