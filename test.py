@@ -78,7 +78,7 @@ def launch(worker_num, mode):
 
     for i in range(worker_num):
         worker = Popen(['java', '-cp', 'target/KVStore-1.0-SNAPSHOT-jar-with-dependencies.jar',
-                        'kvstore.servers.Worker', 'src/main/resources/servers.conf', str(i), mode])
+                        'kvstore.servers.Worker', 'src/main/resources/servers.conf', str(i)])
         sleep(1)
         pool.append(worker)
 

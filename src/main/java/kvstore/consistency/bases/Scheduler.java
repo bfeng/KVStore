@@ -4,9 +4,10 @@ import java.util.concurrent.PriorityBlockingQueue;
 
 public abstract class Scheduler implements Runnable {
     protected PriorityBlockingQueue<TaskEntry> tasksQ;
-
-    public Scheduler() {
+    protected Timestamp globalTs;
+    public Scheduler(Timestamp ts) {
         this.tasksQ = new PriorityBlockingQueue<TaskEntry>(1024);
+        this.globalTs = ts;
     }
 
     /**

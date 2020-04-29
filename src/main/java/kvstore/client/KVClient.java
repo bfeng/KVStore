@@ -57,7 +57,7 @@ public class KVClient {
         public int action;
         public String key;
         public String value;
-        public int option;
+        public String option;
 
         public ReqContent(String action, String key, String value, String option) {
             switch (action) {
@@ -75,16 +75,16 @@ public class KVClient {
 
             switch (option) {
                 case "Sequential":
-                    this.option = 0;
+                    this.option = "Sequential";
                     break;
                 case "Causal":
-                    this.option = 1;
+                    this.option = "Causal";
                     break;
                 case "Eventual":
-                    this.option = 2;
+                    this.option = "Eventual";
                     break;
                 case "Linear":
-                    this.option = 3;
+                    this.option = "Linear";
                     break;
                 default:
                     System.err.println("Undefined consistency option: " + option);
@@ -103,7 +103,7 @@ public class KVClient {
             return this.value;
         }
 
-        public int getOpt() {
+        public String getOpt() {
             return this.option;
         }
     }
@@ -132,9 +132,9 @@ public class KVClient {
         });
     }
 
-    void writeSync(String key, String value, CountDownLatch finishLatch) {
+    void writeSync(String key, String value, String mode, CountDownLatch finishLatch) {
         MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(masterChannel);
-        WriteReq writeReq = WriteReq.newBuilder().setKey(key).setVal(value).build();
+        WriteReq writeReq = WriteReq.newBuilder().setKey(key).setVal(value).setMode(mode).build();
         WriteResp resp = stub.writeMsg(writeReq);
         finishLatch.countDown();
     }
@@ -172,7 +172,7 @@ public class KVClient {
             logger.info(String.format("%s:%s:%s:%s", req.getAct(), req.getKey(), req.getVal(), req.getOpt()));
             if (req.getAct() == 1) {
                 service.submit(() -> {
-                    client.writeSync(req.getKey(), req.getVal(), finishLatch);
+                    client.writeSync(req.getKey(), req.getVal(), req.getOpt(), finishLatch);
                     return 0;
                 });
             }

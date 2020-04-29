@@ -20,38 +20,28 @@ import kvstore.consistency.schedulers.SequentialScheduler;
 import kvstore.consistency.tasks.BcastAckTask;
 import kvstore.consistency.tasks.WriteTask;
 import kvstore.consistency.timestamps.ScalarTimestamp;
+import kvstore.consistency.timestamps.VectorTimestamp;
 
 public class Worker extends ServerBase {
     public static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
     private final int port;
-    private final String mode;
     private final Map<String, String> dataStore = new ConcurrentHashMap<>();
-    private Scheduler sche;
+    private SequentialScheduler seqSche;
+    private CausalScheduler causalSche;
     private ManagedChannel masterChannel;
     private ManagedChannel[] workerChannels;
     private WorkerServiceGrpc.WorkerServiceBlockingStub[] workerStubs;
     private WorkerServiceGrpc.WorkerServiceBlockingStub masterStub;
 
-    public Worker(String configuration, int workerId, String mode) throws IOException {
+    public Worker(String configuration, int workerId) throws IOException {
         super(configuration);
         this.workerId = workerId;
-        this.mode = mode;
         this.port = getWorkerConf().get(workerId).port;
         initStubs();
         initLogger();
-        logger.info(String.format("The input mode is %s", mode));
-        switch (mode) {
-            case "Sequential":
-                this.sche = new SequentialScheduler(getWorkerConf().size());
-                break;
-            case "Causal":
-                this.sche = new CausalScheduler(getWorkerConf().size());
-                break;
-            default:
-                this.sche = new SequentialScheduler(getWorkerConf().size());
-                break;
-        }
+        this.seqSche = new SequentialScheduler(new ScalarTimestamp(0, workerId), getWorkerConf().size());
+        this.causalSche = new CausalScheduler(new VectorTimestamp(), getWorkerConf().size());
     }
 
     private void initLogger() throws SecurityException, IOException {
@@ -103,7 +93,8 @@ public class Worker extends ServerBase {
         // port));
 
         /* Start the scheduler */
-        (new Thread(this.sche)).start();
+        (new Thread(this.seqSche)).start();
+        (new Thread(this.causalSche)).start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             // Use stderr here since the logger may have been reset by its JVM shutdown
@@ -140,7 +131,7 @@ public class Worker extends ServerBase {
     private void bcastWriteReq(WriteReq req, int clock) throws InterruptedException {
         for (int i = 0; i < getWorkerConf().size(); i++) {
             WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
-                    .setSenderClock(clock).build();
+                    .setSenderClock(clock).setMode(req.getMode()).build();
             BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
             // logger.info(String.format("<<<Worker[%d]
             // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
@@ -153,7 +144,7 @@ public class Worker extends ServerBase {
      * Main launches the server from the command line.
      */
     public static void main(String[] args) throws IOException, InterruptedException {
-        final Worker server = new Worker(args[0], Integer.parseInt(args[1]), args[2]);
+        final Worker server = new Worker(args[0], Integer.parseInt(args[1]));
         server.start();
         server.blockUntilShutdown();
     }
@@ -175,10 +166,10 @@ public class Worker extends ServerBase {
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             /* Update the clock for issuing a write operation */
             /* Broadcast the issued write operation */
-            switch (worker.mode) {
+            switch (request.getMode()) {
                 case "Sequential":
                     try {
-                        worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
+                        worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -186,7 +177,7 @@ public class Worker extends ServerBase {
                     break;
                 case "Causal":
                     try {
-                        worker.bcastWriteReq(request, worker.sche.incrementAndGetTimeStamp());
+                        worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -203,11 +194,11 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            switch (worker.mode) {
+            switch (request.getMode()) {
                 case "Sequential":
                     /* Update clock by comparing with the sender */
                     /* Update clock for having received the broadcasted message */
-                    worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
+                    worker.seqSche.updateAndIncrementTimeStamp(request.getSenderClock());
 
                     /* Create a new write task */
                     ScalarTimestamp ts = new ScalarTimestamp(request.getSenderClock(), request.getSender());
@@ -217,7 +208,7 @@ public class Worker extends ServerBase {
                     newWriteTASK.setBcastAckTask(new BcastAckTask(ts, worker.workerId, worker.workerStubs));
 
                     /* Enqueue a new write task */
-                    worker.sche.addTask(newWriteTASK);
+                    worker.seqSche.addTask(newWriteTASK);
                     break;
 
                 case "Causal":
@@ -245,11 +236,11 @@ public class Worker extends ServerBase {
 
             /* Update clock compared with the sender */
             /* Update the clock for having updated the acknowledgement */
-            worker.sche.updateAndIncrementTimeStamp(request.getSenderClock());
+            worker.seqSche.updateAndIncrementTimeStamp(request.getSenderClock());
 
             /* Updata the acks number for the specified message */
             ScalarTimestamp ts = new ScalarTimestamp(request.getClock(), request.getId());
-            Boolean[] ackArr = ((SequentialScheduler) (worker.sche)).updateAck(ts, request.getSender());
+            Boolean[] ackArr = ((SequentialScheduler) (worker.seqSche)).updateAck(ts, request.getSender());
 
             /* The below is for debugging */
             // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n

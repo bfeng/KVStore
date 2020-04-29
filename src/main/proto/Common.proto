@@ -22,6 +22,7 @@ message ServerResp {
 message WriteReq {
     string key = 1;
     string val = 2;
+    string mode = 3;
 }
 
 message WriteResp {

@@ -34,8 +34,8 @@ public class SequentialScheduler extends Scheduler {
      * @throws IOException
      * @throws SecurityException
      */
-    public SequentialScheduler(int ackLimit)
-            throws SecurityException, IOException {
+    public SequentialScheduler(ScalarTimestamp ts, int ackLimit) throws SecurityException, IOException {
+        super(ts);
         /* A hashmap contains all happened acknowledgement */
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(1024);
         this.ackLimit = ackLimit;
@@ -72,7 +72,8 @@ public class SequentialScheduler extends Scheduler {
                     Thread taskThread = new Thread(task);
                     taskThread.start();
                     taskThread.join();
-                    Worker.logger.info(String.format("<<<Message[%d][%d] Delivered!>>>", ((ScalarTimestamp)(task.ts)).localClock, ((ScalarTimestamp)(task.ts)).id));
+                    Worker.logger.info(String.format("<<<Message[%d][%d] Delivered!>>>",
+                            ((ScalarTimestamp) (task.ts)).localClock, ((ScalarTimestamp) (task.ts)).id));
 
                 } else {
 
@@ -137,18 +138,23 @@ public class SequentialScheduler extends Scheduler {
     public synchronized void deleteAckArr(String key) {
         this.acksMap.remove(key);
     }
-
+    
     @Override
     public synchronized int incrementAndGetTimeStamp() {
-        this.globalClock++;
-        return globalClock;
+        ((ScalarTimestamp)(this.globalTs)).localClock++;
+        return ((ScalarTimestamp)(this.globalTs)).localClock;
+        // this.globalClock++;
+        // return globalClock;
     }
 
     @Override
     public synchronized int updateAndIncrementTimeStamp(int SenderTimeStamp) {
-        this.globalClock = Math.max(this.globalClock, SenderTimeStamp);
-        this.globalClock++;
-        return globalClock;
+        ((ScalarTimestamp)(this.globalTs)).localClock = Math.max(((ScalarTimestamp)(this.globalTs)).localClock, SenderTimeStamp);
+        ((ScalarTimestamp)(this.globalTs)).localClock++;
+        return ((ScalarTimestamp)(this.globalTs)).localClock;
+        // this.globalClock = Math.max(this.globalClock, SenderTimeStamp);
+        // this.globalClock++;
+        // return globalClock;
     }
 
 }

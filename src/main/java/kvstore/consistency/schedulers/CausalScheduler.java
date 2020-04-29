@@ -4,25 +4,23 @@ import java.util.Vector;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.timestamps.VectorTimestamp;
 import kvstore.servers.Worker;
 
 public class CausalScheduler extends Scheduler {
-    private Vector<Vector<Integer>> timeStamp;
+    private Vector<Integer> timeStamp;
 
-    public CausalScheduler(int worker_size) {
-        initTimeStamp(worker_size);
+    public CausalScheduler(VectorTimestamp vts ,int worker_num) {
+        super(vts);
+        initTimeStamp(worker_num);
         Worker.logger.info(String.format("%s", this.timeStamp.toString()));
 
     }
 
-    private void initTimeStamp(int size) {
-        this.timeStamp = new Vector<>(size);
-        for (int i = 0; i < size; i++) {
-            Vector<Integer> r = new Vector<Integer>(size);
-            for (int j = 0; j < size; j++) {
-                r.add(0);
-            }
-            this.timeStamp.add(r);
+    private void initTimeStamp(int num) {
+        this.timeStamp = new Vector<>(num);
+        for (int i = 0; i < num; i++) {
+            this.timeStamp.add(0);
         }
     }
 

@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 from itertools import combinations
 import argparse
+import pprint
 
 def set_up_arg_parser():
     parser = argparse.ArgumentParser(description='validate the result')
@@ -32,6 +33,8 @@ def validate_sequential():
             res = logs[i] == logs[j]
             print(f'Check worker {i} and worke {j}...{res}')
             if not res:
+                pprint.pprint(logs[i])
+                pprint.pprint(logs[j])
                 raise AssertionError
         print("The output obyes the sequential consistency")
     except AssertionError:
