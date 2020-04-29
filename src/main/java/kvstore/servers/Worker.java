@@ -130,21 +130,32 @@ public class Worker extends ServerBase {
      * 
      */
     private void bcastWriteReq(WriteReq req, Timestamp ts) throws InterruptedException {
-        if (req.getMode().equals("Sequential")){
-            int clock = ((ScalarTimestamp)(ts)).localClock;
-            Worker.logger.info(String.format("The updated clock is %d", clock));
+        if (req.getMode().equals("Sequential")) {
+            int clock = ((ScalarTimestamp) (ts)).localClock;
             for (int i = 0; i < getWorkerConf().size(); i++) {
-                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
-                        .setSenderClock(clock).setMode(req.getMode()).build();
+                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
+                        .setRequest(req).setSenderClock(clock).setMode(req.getMode()).build();
                 BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
                 // logger.info(String.format("<<<Worker[%d]
                 // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
                 // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
                 // resp.getReceiver()));
             }
+        } else if (req.getMode().equals("Causal")) {
+            for (int i = 0; i < getWorkerConf().size(); i++) {
+                VectorTimestamp vts = (VectorTimestamp) ts;
+
+                // WriteReqBcast writeReqBcast =
+                // WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
+                // .setRequest(req).setMode(req.getMode()).addAllVts(this.causalSche.).build();
+                // BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
+                // logger.info(String.format("<<<Worker[%d]
+                // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+                // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
+                // resp.getReceiver()));
+            }
         }
-        
-        
+
     }
 
     /**
@@ -214,7 +225,8 @@ public class Worker extends ServerBase {
 
                     /* Create a new write task */
                     ScalarTimestamp ts = new ScalarTimestamp(request.getSenderClock(), request.getSender());
-                    WriteTask newWriteTASK = new WriteTask(ts, request.getRequest(), worker.dataStore);
+                    WriteTask<ScalarTimestamp> newWriteTASK = new WriteTask<ScalarTimestamp>(ts, request.getRequest(),
+                            worker.dataStore);
 
                     /* Attach a bcastAckTask for this write task */
                     newWriteTASK.setBcastAckTask(new BcastAckTask(ts, worker.workerId, worker.workerStubs));

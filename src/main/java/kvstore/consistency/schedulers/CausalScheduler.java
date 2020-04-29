@@ -5,25 +5,22 @@ import java.util.Vector;
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
 import kvstore.consistency.bases.Timestamp;
-import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.consistency.timestamps.VectorTimestamp;
 import kvstore.servers.Worker;
 
-public class CausalScheduler extends Scheduler {
-    private Vector<Integer> timeStamp;
+public class CausalScheduler extends Scheduler<VectorTimestamp> {
 
-    public CausalScheduler(VectorTimestamp vts ,int worker_num) {
+    public CausalScheduler(VectorTimestamp vts, int worker_num) {
         super(vts);
         initTimeStamp(worker_num);
-        Worker.logger.info(String.format("%s", this.timeStamp.toString()));
-
+        Worker.logger.info(String.format("%s", ((VectorTimestamp) (this.globalTs)).toString()));
     }
 
     private void initTimeStamp(int num) {
-        this.timeStamp = new Vector<>(num);
-        for (int i = 0; i < num; i++) {
-            this.timeStamp.add(0);
-        }
+        // ((VectorTimestamp(this.globalTs)).ts = new Vector<>(num);
+        // for (int i = 0; i < num; i++) {
+        // this.timeStamp.add(0);
+        // }
     }
 
     @Override
@@ -45,13 +42,13 @@ public class CausalScheduler extends Scheduler {
     }
 
     @Override
-    public Timestamp incrementAndGetTimeStamp() {
+    public VectorTimestamp incrementAndGetTimeStamp() {
         // TODO Auto-generated method stub
         return this.globalTs;
     }
 
     @Override
-    public Timestamp updateAndIncrementTimeStamp(int SenderTimeStamp) {
+    public VectorTimestamp updateAndIncrementTimeStamp(int SenderTimeStamp) {
         // TODO Auto-generated method stub
         return this.globalTs;
     }

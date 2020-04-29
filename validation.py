@@ -31,7 +31,7 @@ def validate_sequential():
     try:
         for i, j in combinations(keys, 2):
             res = logs[i] == logs[j]
-            print(f'Check worker {i} and worke {j}...{res}')
+            print(f'Check worker {i} {len(logs[i])} and worke {j} {len(logs[j])}...{res}')
             if not res:
                 pprint.pprint(logs[i])
                 pprint.pprint(logs[j])

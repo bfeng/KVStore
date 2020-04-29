@@ -5,9 +5,16 @@ import java.util.Map;
 import kvstore.common.WriteReq;
 import kvstore.consistency.bases.TaskEntry;
 import kvstore.consistency.bases.Timestamp;
+import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.servers.Worker;
-
-public class WriteTask extends TaskEntry {
+/**
+ * TaskEntry<Timestamp>
+ *      ↓
+ * TaskEntry<ScalarTimestamp>
+ *      ↓
+ * WritTask<ScalarTimestamp> Acceptable for sequentialScheduler
+*/
+public class WriteTask<T extends Timestamp> extends TaskEntry<Timestamp> {
     private WriteReq writeReq;
     private Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
@@ -23,7 +30,7 @@ public class WriteTask extends TaskEntry {
      * @param writeReq   the write reqest sent by the master
      * @param dataStore  the reference to the data store of the current worker
      */
-    public WriteTask(Timestamp ts, WriteReq writeReq, Map<String, String> dataStore) {
+    public WriteTask(T ts, WriteReq writeReq, Map<String, String> dataStore) {
         super(ts);
         this.writeReq = writeReq;
         this.dataStore = dataStore;
@@ -93,8 +100,8 @@ public class WriteTask extends TaskEntry {
      * The timestamp is compred to order the tasks in the priority queue
     */
     @Override
-    public int compareTo(TaskEntry other) {
+    public int compareTo(TaskEntry<Timestamp> other) {
         /* Downcast to the writtask. The timestamp is compared */
-        return this.ts.minus(((WriteTask) other).ts);
+        return this.ts.minus(((WriteTask<T>) other).ts);
     }
 }

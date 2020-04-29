@@ -1,9 +1,9 @@
 package kvstore.consistency.bases;
 
-public abstract class TaskEntry implements Runnable, Comparable<TaskEntry> {
-    public Timestamp ts;
+public abstract class TaskEntry<T extends Timestamp> implements Runnable, Comparable<TaskEntry<T>> {
+    public T ts;
 
-    public TaskEntry(Timestamp ts) {
+    public TaskEntry(T ts) {
         this.ts = ts;
     }
 

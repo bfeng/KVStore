@@ -3,7 +3,6 @@ package kvstore.consistency.schedulers;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.FileHandler;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
@@ -17,11 +16,9 @@ import kvstore.servers.Worker;
  * customized comparator. The scheduler keeps taking a task from the priority
  * queue starting the task if allowed.
  */
-public class SequentialScheduler extends Scheduler {
+public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
     private ConcurrentHashMap<String, Boolean[]> acksMap;
     private int ackLimit;
-    public int globalClock; /* A scheduler would maintain a logic clock */
-    FileHandler fh;
 
     /**
      * The ackMaps contains all happened acknowledgement for each message. The value
@@ -39,7 +36,6 @@ public class SequentialScheduler extends Scheduler {
         /* A hashmap contains all happened acknowledgement */
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(1024);
         this.ackLimit = ackLimit;
-        this.globalClock = 0;
     }
 
     /**
@@ -138,32 +134,34 @@ public class SequentialScheduler extends Scheduler {
     public synchronized void deleteAckArr(String key) {
         this.acksMap.remove(key);
     }
-    
-    @Override
-    public synchronized Timestamp incrementAndGetTimeStamp() {
-        ((ScalarTimestamp)(this.globalTs)).localClock++;
-        int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
-        int id = ((ScalarTimestamp)(this.globalTs)).id;
-        return (Timestamp)(new ScalarTimestamp (localClock, id));
-        // return this.globalTs;
 
-        // this.globalClock++;
-        // return globalClock;
+    @Override
+    public synchronized ScalarTimestamp incrementAndGetTimeStamp() {
+        (this.globalTs).localClock++;
+        int localClock = this.globalTs.localClock;
+        int id = this.globalTs.id;
+        return (new ScalarTimestamp(localClock, id));
+        // ((ScalarTimestamp)(this.globalTs)).localClock++;
+        // int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
+        // int id = ((ScalarTimestamp)(this.globalTs)).id;
+        // return (new ScalarTimestamp (localClock, id));
     }
 
     @Override
-    public synchronized Timestamp updateAndIncrementTimeStamp(int SenderTimeStamp) {
-        ((ScalarTimestamp)(this.globalTs)).localClock = Math.max(((ScalarTimestamp)(this.globalTs)).localClock, SenderTimeStamp);
-        ((ScalarTimestamp)(this.globalTs)).localClock++;
+    public synchronized ScalarTimestamp updateAndIncrementTimeStamp(int SenderTimeStamp) {
+        this.globalTs.localClock = Math.max(this.globalTs.localClock, SenderTimeStamp);
+        this.globalTs.localClock++;
 
-        int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
-        int id = ((ScalarTimestamp)(this.globalTs)).id;
-        return (Timestamp)(new ScalarTimestamp (localClock, id));
-        // return this.globalTs;
+        int localClock = this.globalTs.localClock;
+        int id = this.globalTs.id;
+        return (new ScalarTimestamp(localClock, id));
+        // ((ScalarTimestamp)(this.globalTs)).localClock =
+        // Math.max(((ScalarTimestamp)(this.globalTs)).localClock, SenderTimeStamp);
+        // ((ScalarTimestamp)(this.globalTs)).localClock++;
 
-        // this.globalClock = Math.max(this.globalClock, SenderTimeStamp);
-        // this.globalClock++;
-        // return globalClock;
+        // int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
+        // int id = ((ScalarTimestamp)(this.globalTs)).id;
+        // return (new ScalarTimestamp (localClock, id));
     }
 
 }

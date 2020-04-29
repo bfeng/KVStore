@@ -8,7 +8,7 @@ import kvstore.servers.AckResp;
 import kvstore.servers.Worker;
 import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
 
-public class BcastAckTask extends TaskEntry {
+public class BcastAckTask extends TaskEntry<Timestamp> {
     private int senderId;
     public int id;
     private WorkerServiceBlockingStub[] workerStubs;
@@ -53,7 +53,7 @@ public class BcastAckTask extends TaskEntry {
     }
 
     @Override
-    public int compareTo(TaskEntry o) {
+    public int compareTo(TaskEntry<Timestamp> o) {
         // TODO Auto-generated method stub
         return 0;
     }
