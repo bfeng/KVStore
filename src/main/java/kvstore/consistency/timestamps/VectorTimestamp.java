@@ -1,6 +1,8 @@
-package kvstore.consistency.bases;
+package kvstore.consistency.comparators;
 
-public class VectorTimestamp extends Timestamp{
+import kvstore.consistency.bases.Timestamp;
+
+public class VectorTimestamp extends Timestamp {
 
     @Override
     public String genKey() {

@@ -2,16 +2,14 @@ package kvstore.consistency.schedulers;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
 import kvstore.consistency.bases.Timestamp;
-import kvstore.consistency.comparators.ScalarTimestamp;
 import kvstore.consistency.tasks.WriteTask;
-import kvstore.servers.AckReq;
+import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.servers.Worker;
 
 /**
@@ -36,9 +34,8 @@ public class SequentialScheduler extends Scheduler {
      * @throws IOException
      * @throws SecurityException
      */
-    public SequentialScheduler(int ackLimit, Comparator<TaskEntry> sortBy)
+    public SequentialScheduler(int ackLimit)
             throws SecurityException, IOException {
-        super(sortBy);
         /* A hashmap contains all happened acknowledgement */
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(1024);
         this.ackLimit = ackLimit;

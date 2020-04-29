@@ -1,8 +1,6 @@
 package kvstore.consistency.schedulers;
 
-import java.util.Comparator;
 import java.util.Vector;
-import java.util.logging.Logger;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
@@ -11,8 +9,7 @@ import kvstore.servers.Worker;
 public class CausalScheduler extends Scheduler {
     private Vector<Vector<Integer>> timeStamp;
 
-    public CausalScheduler(int worker_size, Comparator<TaskEntry> sortBy) {
-        super(sortBy);
+    public CausalScheduler(int worker_size) {
         initTimeStamp(worker_size);
         Worker.logger.info(String.format("%s", this.timeStamp.toString()));
 

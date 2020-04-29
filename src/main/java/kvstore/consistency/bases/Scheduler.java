@@ -1,13 +1,12 @@
 package kvstore.consistency.bases;
 
-import java.util.Comparator;
 import java.util.concurrent.PriorityBlockingQueue;
 
 public abstract class Scheduler implements Runnable {
     protected PriorityBlockingQueue<TaskEntry> tasksQ;
 
-    public Scheduler(Comparator<TaskEntry> sortBy) {
-        this.tasksQ = new PriorityBlockingQueue<TaskEntry>(1024, sortBy);
+    public Scheduler() {
+        this.tasksQ = new PriorityBlockingQueue<TaskEntry>(1024);
     }
 
     /**

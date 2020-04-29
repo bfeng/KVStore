@@ -24,7 +24,7 @@ public class WriteTask extends TaskEntry {
      * @param dataStore  the reference to the data store of the current worker
      */
     public WriteTask(Timestamp ts, WriteReq writeReq, Map<String, String> dataStore) {
-        this.ts = ts;
+        super(ts);
         this.writeReq = writeReq;
         this.dataStore = dataStore;
         this.bcastAckTask = null;
@@ -89,9 +89,12 @@ public class WriteTask extends TaskEntry {
     }
 
 
+    /**
+     * The timestamp is compred to order the tasks in the priority queue
+    */
     @Override
-    public int minus(TaskEntry taskEntry) {
-        WriteTask seqWriteTask = (WriteTask) taskEntry;
-        return (this.ts.minus(seqWriteTask.ts));
+    public int compareTo(TaskEntry other) {
+        /* Downcast to the writtask. The timestamp is compared */
+        return this.ts.minus(((WriteTask) other).ts);
     }
 }

@@ -1,4 +1,4 @@
-package kvstore.consistency.comparators;
+package kvstore.consistency.timestamps;
 
 import kvstore.consistency.bases.Timestamp;
 

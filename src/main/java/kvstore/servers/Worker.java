@@ -15,12 +15,11 @@ import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.consistency.bases.Scheduler;
-import kvstore.consistency.comparators.ScalarTimestamp;
-import kvstore.consistency.comparators.taskComparator;
 import kvstore.consistency.schedulers.CausalScheduler;
 import kvstore.consistency.schedulers.SequentialScheduler;
 import kvstore.consistency.tasks.BcastAckTask;
 import kvstore.consistency.tasks.WriteTask;
+import kvstore.consistency.timestamps.ScalarTimestamp;
 
 public class Worker extends ServerBase {
     public static final Logger logger = Logger.getLogger(Worker.class.getName());
@@ -44,13 +43,13 @@ public class Worker extends ServerBase {
         logger.info(String.format("The input mode is %s", mode));
         switch (mode) {
             case "Sequential":
-                this.sche = new SequentialScheduler(getWorkerConf().size(), new taskComparator());
+                this.sche = new SequentialScheduler(getWorkerConf().size());
                 break;
             case "Causal":
-                this.sche = new CausalScheduler(getWorkerConf().size(), new taskComparator());
+                this.sche = new CausalScheduler(getWorkerConf().size());
                 break;
             default:
-                this.sche = new SequentialScheduler(getWorkerConf().size(), new taskComparator());
+                this.sche = new SequentialScheduler(getWorkerConf().size());
                 break;
         }
     }
@@ -215,8 +214,7 @@ public class Worker extends ServerBase {
                     WriteTask newWriteTASK = new WriteTask(ts, request.getRequest(), worker.dataStore);
 
                     /* Attach a bcastAckTask for this write task */
-                    newWriteTASK.setBcastAckTask(new BcastAckTask(request.getSenderClock(), request.getSender(),
-                            worker.workerId, worker.workerStubs));
+                    newWriteTASK.setBcastAckTask(new BcastAckTask(ts, worker.workerId, worker.workerStubs));
 
                     /* Enqueue a new write task */
                     worker.sche.addTask(newWriteTASK);

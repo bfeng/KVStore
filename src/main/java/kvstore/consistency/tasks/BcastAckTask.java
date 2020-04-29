@@ -1,21 +1,15 @@
 package kvstore.consistency.tasks;
 
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.bases.Timestamp;
+import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.servers.AckReq;
 import kvstore.servers.AckResp;
 import kvstore.servers.Worker;
-import kvstore.servers.WorkerServiceGrpc;
 import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
-
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 
 public class BcastAckTask extends TaskEntry {
     private int senderId;
-    public int localClock;
     public int id;
     private WorkerServiceBlockingStub[] workerStubs;
 
@@ -24,9 +18,8 @@ public class BcastAckTask extends TaskEntry {
      * @param id         the id of the message to acknowledge
      * @param senderId   the senderId who sends the ack
      */
-    public BcastAckTask(int localClock, int id, int senderId, WorkerServiceBlockingStub[] workerStubs) {
-        this.localClock = localClock;
-        this.id = id;
+    public BcastAckTask(Timestamp ts, int senderId, WorkerServiceBlockingStub[] workerStubs) {
+        super(ts);
         this.workerStubs = workerStubs;
         this.senderId = senderId;
     }
@@ -37,14 +30,19 @@ public class BcastAckTask extends TaskEntry {
     @Override
     public void run() {
         /* Send acks including the self */
-        for (int i = 0; i < this.workerStubs.length; i++) {
-            AckReq request = AckReq.newBuilder().setClock(localClock).setId(id).setReceiver(i).setSender(senderId)
-                    .build();
-            AckResp resp = this.workerStubs[i].handleAck(request);
+        if (this.ts instanceof ScalarTimestamp) {
+            int localClock = ((ScalarTimestamp) (this.ts)).localClock;
+            int id = ((ScalarTimestamp) (this.ts)).id;
 
-            /* For debugging */
-            Worker.logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId,
-                    request.getClock(), request.getId(), i));
+            for (int i = 0; i < this.workerStubs.length; i++) {
+                AckReq request = AckReq.newBuilder().setClock(localClock).setId(id).setReceiver(i).setSender(senderId)
+                        .build();
+                AckResp resp = this.workerStubs[i].handleAck(request);
+
+                /* For debugging */
+                Worker.logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId,
+                        request.getClock(), request.getId(), i));
+            }
         }
     }
 
@@ -55,7 +53,7 @@ public class BcastAckTask extends TaskEntry {
     }
 
     @Override
-    public int minus(TaskEntry taskEntry) {
+    public int compareTo(TaskEntry o) {
         // TODO Auto-generated method stub
         return 0;
     }
