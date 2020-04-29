@@ -89,10 +89,9 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
 
     /**
      * Add a new task and also create the corresponding ackMap item for this message
-     * The taskQ and acksMap are safe in the multi-thread environment
      */
     @Override
-    public TaskEntry<ScalarTimestamp> addTask(TaskEntry<ScalarTimestamp> newTask) {
+    public synchronized TaskEntry<ScalarTimestamp> addTask(TaskEntry<ScalarTimestamp> newTask) {
         tasksQ.put(newTask); /* Put the taks to the priority queue */
         if (!this.acksMap.containsKey(newTask.getTaskId())) {
             Boolean[] ackArr = new Boolean[ackLimit];

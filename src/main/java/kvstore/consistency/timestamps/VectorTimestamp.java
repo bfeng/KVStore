@@ -5,7 +5,14 @@ import java.util.Vector;
 import kvstore.consistency.bases.Timestamp;
 
 public class VectorTimestamp extends Timestamp {
-    public Vector<Integer> ts;
+    public Vector<Integer> value;
+
+    public VectorTimestamp(int num) {
+        this.value = new Vector<Integer>(num);
+        for (int i = 0; i < num; i++) {
+            this.value.add(0);
+        }
+    }
 
     @Override
     public String genKey() {
@@ -13,10 +20,25 @@ public class VectorTimestamp extends Timestamp {
         return null;
     }
 
+    /**
+     * Minus two vector timstamp
+     * [0 0 0 0]  [0 0 0 0]
+     * 
+     * [1 0 0 0]  [1 0 0 0]
+     * [1 1 0 0]  [1 1 0 0]
+     * [1 0 0 1]  [1 0 0 1]
+     * 
+     * o1 [1 0 0 0] o2 [0 0 0 0] which is at the top of the queue?
+     * o1 - o2 = 1
+    */
     @Override
     public int minus(Timestamp timestamp) {
-        // TODO Auto-generated method stub
-        return 0;
+        VectorTimestamp other = (VectorTimestamp) timestamp;
+        int output = 0;
+        for (int i = 0; i < this.value.size(); i++) {
+            output += this.value.get(i) - other.value.get(i);
+        }
+        return output;
     }
 
 }

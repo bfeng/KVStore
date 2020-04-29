@@ -3,6 +3,7 @@ package kvstore.servers;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -14,7 +15,6 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
-import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.Timestamp;
 import kvstore.consistency.schedulers.CausalScheduler;
 import kvstore.consistency.schedulers.SequentialScheduler;
@@ -42,7 +42,8 @@ public class Worker extends ServerBase {
         initStubs();
         initLogger();
         this.seqSche = new SequentialScheduler(new ScalarTimestamp(0, workerId), getWorkerConf().size());
-        this.causalSche = new CausalScheduler(new VectorTimestamp(), getWorkerConf().size());
+        this.causalSche = new CausalScheduler(new VectorTimestamp(getWorkerConf().size()), getWorkerConf().size(),
+                workerId);
     }
 
     private void initLogger() throws SecurityException, IOException {
@@ -145,10 +146,10 @@ public class Worker extends ServerBase {
             for (int i = 0; i < getWorkerConf().size(); i++) {
                 VectorTimestamp vts = (VectorTimestamp) ts;
 
-                // WriteReqBcast writeReqBcast =
-                // WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
-                // .setRequest(req).setMode(req.getMode()).addAllVts(this.causalSche.).build();
-                // BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
+                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
+                        .setRequest(req).setMode(req.getMode()).addAllVts(vts.value).build();
+
+                BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
                 // logger.info(String.format("<<<Worker[%d]
                 // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
                 // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
@@ -188,7 +189,7 @@ public class Worker extends ServerBase {
                 if (request.getMode().equals("Sequential")) {
                     worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
                 } else if (request.getMode().equals("Causal")) {
-                    // worker.bcastWriteReq(request, worker.causalSche.incrementAndGetTimeStamp());
+                    worker.bcastWriteReq(request, worker.causalSche.incrementAndGetTimeStamp());
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -202,33 +203,31 @@ public class Worker extends ServerBase {
 
         @Override
         public void handleBcastWrite(WriteReqBcast request, StreamObserver<BcastResp> responseObserver) {
-            switch (request.getMode()) {
-                case "Sequential":
-                    /* Update clock by comparing with the sender */
-                    /* Update clock for having received the broadcasted message */
-                    worker.seqSche.updateAndIncrementTimeStamp(request.getSenderClock());
 
-                    /* Create a new write task */
-                    ScalarTimestamp ts = new ScalarTimestamp(request.getSenderClock(), request.getSender());
-                    WriteTask<ScalarTimestamp> newWriteTASK = new WriteTask<ScalarTimestamp>(ts, request.getRequest(),
-                            worker.dataStore);
+            if (request.getMode().equals("Sequential")) {
+                /* Update clock by comparing with the sender */
+                /* Update clock for having received the broadcasted message */
+                worker.seqSche.updateAndIncrementTimeStamp(request.getSenderClock());
 
-                    /* Attach a bcastAckTask for this write task */
-                    newWriteTASK.setBcastAckTask(new BcastAckTask(ts, worker.workerId, worker.workerStubs));
+                /* Create a new write task */
+                ScalarTimestamp ts = new ScalarTimestamp(request.getSenderClock(), request.getSender());
+                WriteTask<ScalarTimestamp> newWriteTASK = new WriteTask<ScalarTimestamp>(ts, request.getRequest(),
+                        worker.dataStore);
 
-                    /* Enqueue a new write task */
-                    worker.seqSche.addTask(newWriteTASK);
-                    break;
+                /* Attach a bcastAckTask for this write task */
+                newWriteTASK.setBcastAckTask(new BcastAckTask(ts, worker.workerId, worker.workerStubs));
 
-                case "Causal":
-                    /* Create a new write task */
-                    // SeqWriteTask newWriteTASK = new SeqWriteTask(request.getSenderClock(),
-                    // request.getSender(),
-                    // request.getRequest(), worker.dataStore);
-                    break;
-
-                default:
-                    break;
+                /* Enqueue a new write task */
+                worker.seqSche.addTask(newWriteTASK);
+            } else if (request.getMode().equals("Causal")) {
+                Worker.logger.info(String.format("Received vts: %s", request.getVtsList().toString()));
+                /* Create a new write task */
+                VectorTimestamp vts = new VectorTimestamp(worker.workerId);
+                vts.value = new Vector<Integer>(request.getVtsList());
+                WriteTask<VectorTimestamp> newWriteTASK = new WriteTask<VectorTimestamp>(vts, request.getRequest(),
+                        worker.dataStore);
+                /* Enqueue a new write task */
+                worker.causalSche.addTask(newWriteTASK);
             }
 
             /* Return */
@@ -249,7 +248,7 @@ public class Worker extends ServerBase {
 
             /* Updata the acks number for the specified message */
             ScalarTimestamp ts = new ScalarTimestamp(request.getClock(), request.getId());
-            Boolean[] ackArr = ((SequentialScheduler) (worker.seqSche)).updateAck(ts, request.getSender());
+            Boolean[] ackArr = (worker.seqSche).updateAck(ts, request.getSender());
 
             /* The below is for debugging */
             // logger.info(String.format("<<<Worker[%d] <--ACK_Message[%d][%d]--Worker[%d]\n
