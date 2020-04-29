@@ -4,6 +4,8 @@ import java.util.Vector;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.bases.Timestamp;
+import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.consistency.timestamps.VectorTimestamp;
 import kvstore.servers.Worker;
 
@@ -43,15 +45,15 @@ public class CausalScheduler extends Scheduler {
     }
 
     @Override
-    public int incrementAndGetTimeStamp() {
+    public Timestamp incrementAndGetTimeStamp() {
         // TODO Auto-generated method stub
-        return 0;
+        return this.globalTs;
     }
 
     @Override
-    public int updateAndIncrementTimeStamp(int SenderTimeStamp) {
+    public Timestamp updateAndIncrementTimeStamp(int SenderTimeStamp) {
         // TODO Auto-generated method stub
-        return 0;
+        return this.globalTs;
     }
 
 }

@@ -27,12 +27,12 @@ public abstract class Scheduler implements Runnable {
      * 
      * @return the updated timestap
      */
-    abstract public int incrementAndGetTimeStamp();
+    abstract public Timestamp incrementAndGetTimeStamp();
 
     /**
      * Update the time stamp with a incoming sender
      */
-    abstract public int updateAndIncrementTimeStamp(int SenderTimeStamp);
+    abstract public Timestamp updateAndIncrementTimeStamp(int SenderTimeStamp);
 
 
 }

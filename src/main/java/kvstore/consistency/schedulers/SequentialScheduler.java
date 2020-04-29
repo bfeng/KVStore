@@ -140,18 +140,27 @@ public class SequentialScheduler extends Scheduler {
     }
     
     @Override
-    public synchronized int incrementAndGetTimeStamp() {
+    public synchronized Timestamp incrementAndGetTimeStamp() {
         ((ScalarTimestamp)(this.globalTs)).localClock++;
-        return ((ScalarTimestamp)(this.globalTs)).localClock;
+        int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
+        int id = ((ScalarTimestamp)(this.globalTs)).id;
+        return (Timestamp)(new ScalarTimestamp (localClock, id));
+        // return this.globalTs;
+
         // this.globalClock++;
         // return globalClock;
     }
 
     @Override
-    public synchronized int updateAndIncrementTimeStamp(int SenderTimeStamp) {
+    public synchronized Timestamp updateAndIncrementTimeStamp(int SenderTimeStamp) {
         ((ScalarTimestamp)(this.globalTs)).localClock = Math.max(((ScalarTimestamp)(this.globalTs)).localClock, SenderTimeStamp);
         ((ScalarTimestamp)(this.globalTs)).localClock++;
-        return ((ScalarTimestamp)(this.globalTs)).localClock;
+
+        int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
+        int id = ((ScalarTimestamp)(this.globalTs)).id;
+        return (Timestamp)(new ScalarTimestamp (localClock, id));
+        // return this.globalTs;
+
         // this.globalClock = Math.max(this.globalClock, SenderTimeStamp);
         // this.globalClock++;
         // return globalClock;

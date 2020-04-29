@@ -15,6 +15,7 @@ import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.consistency.bases.Scheduler;
+import kvstore.consistency.bases.Timestamp;
 import kvstore.consistency.schedulers.CausalScheduler;
 import kvstore.consistency.schedulers.SequentialScheduler;
 import kvstore.consistency.tasks.BcastAckTask;
@@ -128,16 +129,22 @@ public class Worker extends ServerBase {
      * @throws InterruptedException
      * 
      */
-    private void bcastWriteReq(WriteReq req, int clock) throws InterruptedException {
-        for (int i = 0; i < getWorkerConf().size(); i++) {
-            WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
-                    .setSenderClock(clock).setMode(req.getMode()).build();
-            BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
-            // logger.info(String.format("<<<Worker[%d]
-            // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
-            // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
-            // resp.getReceiver()));
+    private void bcastWriteReq(WriteReq req, Timestamp ts) throws InterruptedException {
+        if (req.getMode().equals("Sequential")){
+            int clock = ((ScalarTimestamp)(ts)).localClock;
+            Worker.logger.info(String.format("The updated clock is %d", clock));
+            for (int i = 0; i < getWorkerConf().size(); i++) {
+                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i).setRequest(req)
+                        .setSenderClock(clock).setMode(req.getMode()).build();
+                BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
+                // logger.info(String.format("<<<Worker[%d]
+                // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+                // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
+                // resp.getReceiver()));
+            }
         }
+        
+        
     }
 
     /**
@@ -166,25 +173,30 @@ public class Worker extends ServerBase {
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
             /* Update the clock for issuing a write operation */
             /* Broadcast the issued write operation */
-            switch (request.getMode()) {
-                case "Sequential":
-                    try {
-                        worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    ;
-                    break;
-                case "Causal":
-                    try {
-                        worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    break;
-                default:
-                    break;
+            try {
+                if (request.getMode().equals("Sequential")) {
+                    worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
+                } else if (request.getMode().equals("Causal")) {
+                    // worker.bcastWriteReq(request, worker.causalSche.incrementAndGetTimeStamp());
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
+            // switch (request.getMode()) {
+            // case "Sequential":
+
+            // ;
+            // break;
+            // case "Causal":
+            // try {
+            // worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
+            // } catch (InterruptedException e) {
+            // e.printStackTrace();
+            // }
+            // break;
+            // default:
+            // break;
+            // }
 
             /* Return */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();
