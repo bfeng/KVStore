@@ -182,9 +182,9 @@ public class Worker extends ServerBase {
          */
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
-            /* Update the clock for issuing a write operation */
-            /* Broadcast the issued write operation */
             try {
+                /* Update the clock for issuing a write operation */
+                /* Broadcast the issued write operation */
                 if (request.getMode().equals("Sequential")) {
                     worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
                 } else if (request.getMode().equals("Causal")) {
@@ -193,21 +193,6 @@ public class Worker extends ServerBase {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            // switch (request.getMode()) {
-            // case "Sequential":
-
-            // ;
-            // break;
-            // case "Causal":
-            // try {
-            // worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
-            // } catch (InterruptedException e) {
-            // e.printStackTrace();
-            // }
-            // break;
-            // default:
-            // break;
-            // }
 
             /* Return */
             WriteResp resp = WriteResp.newBuilder().setReceiver(worker.workerId).setStatus(0).build();

@@ -49,7 +49,7 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
                 // testing purpose */
 
                 /* Taking a task from the queue. Block when the queue is empty */
-                WriteTask task = (WriteTask) tasksQ.take();
+                WriteTask<ScalarTimestamp> task = (WriteTask<ScalarTimestamp>) tasksQ.take();
 
                 /* For debugging */
                 // logger.info(String.format("<<<Run Task %s: Message[%d][%d]>>>",
@@ -68,8 +68,8 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
                     Thread taskThread = new Thread(task);
                     taskThread.start();
                     taskThread.join();
-                    Worker.logger.info(String.format("<<<Message[%d][%d] Delivered!>>>",
-                            ((ScalarTimestamp) (task.ts)).localClock, ((ScalarTimestamp) (task.ts)).id));
+                    Worker.logger
+                            .info(String.format("<<<Message[%d][%d] Delivered!>>>", task.ts.localClock, task.ts.id));
 
                 } else {
 
@@ -91,7 +91,8 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
      * Add a new task and also create the corresponding ackMap item for this message
      * The taskQ and acksMap are safe in the multi-thread environment
      */
-    public TaskEntry addTask(TaskEntry newTask) {
+    @Override
+    public TaskEntry<ScalarTimestamp> addTask(TaskEntry<ScalarTimestamp> newTask) {
         tasksQ.put(newTask); /* Put the taks to the priority queue */
         if (!this.acksMap.containsKey(newTask.getTaskId())) {
             Boolean[] ackArr = new Boolean[ackLimit];
@@ -104,7 +105,8 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
     /**
      * Check if all replies for this message is received
      */
-    public synchronized boolean ifAllowDeliver(TaskEntry task) {
+    @Override
+    public synchronized boolean ifAllowDeliver(TaskEntry<ScalarTimestamp> task) {
         String key = task.getTaskId();
         if (!this.acksMap.containsKey(key) || Arrays.asList(this.acksMap.get(key)).contains(false))
             return false;
@@ -118,7 +120,7 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
      * @param ackReq an acknowledgement request
      * @return
      */
-    public synchronized Boolean[] updateAck(Timestamp ts, int sender) {
+    public synchronized Boolean[] updateAck(ScalarTimestamp ts, int sender) {
         String key = ts.genKey();
         if (!this.acksMap.containsKey(key)) {
             Boolean[] ackArr = new Boolean[ackLimit];
@@ -141,10 +143,6 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
         int localClock = this.globalTs.localClock;
         int id = this.globalTs.id;
         return (new ScalarTimestamp(localClock, id));
-        // ((ScalarTimestamp)(this.globalTs)).localClock++;
-        // int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
-        // int id = ((ScalarTimestamp)(this.globalTs)).id;
-        // return (new ScalarTimestamp (localClock, id));
     }
 
     @Override
@@ -155,13 +153,6 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
         int localClock = this.globalTs.localClock;
         int id = this.globalTs.id;
         return (new ScalarTimestamp(localClock, id));
-        // ((ScalarTimestamp)(this.globalTs)).localClock =
-        // Math.max(((ScalarTimestamp)(this.globalTs)).localClock, SenderTimeStamp);
-        // ((ScalarTimestamp)(this.globalTs)).localClock++;
-
-        // int localClock = ((ScalarTimestamp)(this.globalTs)).localClock;
-        // int id = ((ScalarTimestamp)(this.globalTs)).id;
-        // return (new ScalarTimestamp (localClock, id));
     }
 
 }
