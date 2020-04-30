@@ -15,7 +15,7 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
     private WorkerServiceBlockingStub[] workerStubs;
     private WriteReq req;
 
-    public BcastWriteTask(T ts,int workerId, WriteReq req, WorkerServiceBlockingStub[] workerStubs) {
+    public BcastWriteTask(T ts, int workerId, WriteReq req, WorkerServiceBlockingStub[] workerStubs) {
         super(ts);
         this.req = req;
         this.workerStubs = workerStubs;
@@ -34,21 +34,28 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
                 WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(this.workerId).setReceiver(i)
                         .setRequest(this.req).setSenderClock(clock).setMode(this.req.getMode()).build();
                 BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
-                // Worker.logger.info(String.format("<<<Worker[%d]--broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
-                //         writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
-            }
-        } else if (req.getMode().equals("Causal")) {
-            for (int i = 0; i < this.workerStubs.length; i++) {
-                VectorTimestamp vts = (VectorTimestamp) ts;
-
-                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(this.workerId).setReceiver(i)
-                        .setRequest(this.req).setMode(req.getMode()).addAllVts(vts.value).build();
-
-                BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
-                // logger.info(String.format("<<<Worker[%d]
-                // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+                // Worker.logger.info(String.format("<<<Worker[%d]--broadcastMessage[%d][%d]-->Worker[%d]>>>",
+                // workerId,
                 // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
                 // resp.getReceiver()));
+            }
+        } else if (req.getMode().equals("Causal")) {
+            VectorTimestamp vts = (VectorTimestamp) ts;
+            Worker.logger.info(String.format("The current ts is %s", vts.value.toString()));
+            for (int i = 0; i < this.workerStubs.length; i++) {
+                if (i != this.workerId) { /* Don not send to itself in this case */
+                    
+                    
+                    WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(this.workerId).setReceiver(i)
+                            .setRequest(this.req).setMode(req.getMode()).addAllVts(vts.value).build();
+
+                    BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
+                    // logger.info(String.format("<<<Worker[%d]
+                    // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+                    // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
+                    // resp.getReceiver()));
+                }
+
             }
         }
 
@@ -56,6 +63,7 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
 
     @Override
     public void run() {
+
         try {
             bcastWriteReq();
         } catch (InterruptedException e) {
@@ -72,8 +80,7 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
 
     @Override
     public int compareTo(TaskEntry<T> o) {
-        // TODO Auto-generated method stub
-        return 0;
+        return this.ts.minus(o.ts);
     }
 
 }

@@ -1,9 +1,0 @@
-The Causal Consistency
-
-Upon receiving a message
-    - buffer the message
-
-Upon sending a message
-    - timestamp + 1
-
-The multicast should be buffered

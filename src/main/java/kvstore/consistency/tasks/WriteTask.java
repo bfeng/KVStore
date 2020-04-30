@@ -13,7 +13,7 @@ import kvstore.servers.WriteReqBcast;
  * WritTask<ScalarTimestamp> Acceptable for sequentialScheduler
 */
 public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
-    private WriteReqBcast writeReqBcast;
+    public WriteReqBcast writeReqBcast;
     private Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
     private int bcastCount;
@@ -97,6 +97,6 @@ public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
     */
     @Override
     public int compareTo(TaskEntry<T> other) {
-        return this.ts.minus(((WriteTask<T>) other).ts);
+        return this.ts.minus(other.ts);
     }
 }

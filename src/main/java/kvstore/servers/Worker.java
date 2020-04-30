@@ -156,6 +156,16 @@ public class Worker extends ServerBase {
                 (new Thread(new BcastWriteTask<ScalarTimestamp>(worker.seqSche.incrementAndGetTimeStamp(),
                         worker.workerId, request, worker.workerStubs))).start();
             } else if (request.getMode().equals("Causal")) {
+                /*
+                 * Initialize a empty vector. The timestamp for the write task is determined
+                 * when issuing
+                 */
+                VectorTimestamp zerosVts = new VectorTimestamp(worker.getWorkerConf().size());
+                BcastWriteTask<VectorTimestamp> bcastWriteTask = new BcastWriteTask<VectorTimestamp>(zerosVts,
+                        worker.workerId, request, worker.workerStubs);
+                // Worker.logger.info(String.format("Add a bcast write task: %s",
+                // bcastWriteTask.ts.value.toString()));
+                worker.causalSche.addTask(bcastWriteTask);
             }
 
             /* Return */
