@@ -19,6 +19,7 @@ import kvstore.consistency.bases.Timestamp;
 import kvstore.consistency.schedulers.CausalScheduler;
 import kvstore.consistency.schedulers.SequentialScheduler;
 import kvstore.consistency.tasks.BcastAckTask;
+import kvstore.consistency.tasks.BcastWriteTask;
 import kvstore.consistency.tasks.WriteTask;
 import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.consistency.timestamps.VectorTimestamp;
@@ -125,41 +126,6 @@ public class Worker extends ServerBase {
     }
 
     /**
-     * Propagate the write rquest to other workers
-     * 
-     * @throws InterruptedException
-     * 
-     */
-    private void bcastWriteReq(WriteReq req, Timestamp ts) throws InterruptedException {
-        if (req.getMode().equals("Sequential")) {
-            int clock = ((ScalarTimestamp) (ts)).localClock;
-            for (int i = 0; i < getWorkerConf().size(); i++) {
-                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
-                        .setRequest(req).setSenderClock(clock).setMode(req.getMode()).build();
-                BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
-                // logger.info(String.format("<<<Worker[%d]
-                // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
-                // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
-                // resp.getReceiver()));
-            }
-        } else if (req.getMode().equals("Causal")) {
-            for (int i = 0; i < getWorkerConf().size(); i++) {
-                VectorTimestamp vts = (VectorTimestamp) ts;
-
-                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(workerId).setReceiver(i)
-                        .setRequest(req).setMode(req.getMode()).addAllVts(vts.value).build();
-
-                BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
-                // logger.info(String.format("<<<Worker[%d]
-                // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
-                // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
-                // resp.getReceiver()));
-            }
-        }
-
-    }
-
-    /**
      * Main launches the server from the command line.
      */
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -183,16 +149,13 @@ public class Worker extends ServerBase {
          */
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
-            try {
-                /* Update the clock for issuing a write operation */
-                /* Broadcast the issued write operation */
-                if (request.getMode().equals("Sequential")) {
-                    worker.bcastWriteReq(request, worker.seqSche.incrementAndGetTimeStamp());
-                } else if (request.getMode().equals("Causal")) {
-                    worker.bcastWriteReq(request, worker.causalSche.incrementAndGetTimeStamp());
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+
+            /* Update the clock for issuing a write operation */
+            /* Broadcast the issued write operation */
+            if (request.getMode().equals("Sequential")) {
+                (new Thread(new BcastWriteTask<ScalarTimestamp>(worker.seqSche.incrementAndGetTimeStamp(),
+                        worker.workerId, request, worker.workerStubs))).start();
+            } else if (request.getMode().equals("Causal")) {
             }
 
             /* Return */

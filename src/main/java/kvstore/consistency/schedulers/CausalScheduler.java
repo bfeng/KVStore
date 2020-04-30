@@ -1,11 +1,9 @@
 package kvstore.consistency.schedulers;
 
-import java.util.Iterator;
 import java.util.Vector;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
-import kvstore.consistency.bases.Timestamp;
 import kvstore.consistency.timestamps.VectorTimestamp;
 import kvstore.servers.Worker;
 
@@ -29,7 +27,7 @@ public class CausalScheduler extends Scheduler<VectorTimestamp> {
             while (true) {
                 TaskEntry<VectorTimestamp> task = this.tasksQ.take();
                 if (ifAllowDeliver(task)) {
-
+                    Worker.logger.info(String.format("Allow running %s", task.ts.value.toString()));
                 } else {
                     Worker.logger.info(String.format("Message%s Blocked!", task.ts.value.toString()));
                     this.tasksQ.put(task);
@@ -43,32 +41,32 @@ public class CausalScheduler extends Scheduler<VectorTimestamp> {
     }
 
     /**
-     * [1 1 0 1]
-     * [2 1 0 1]
-    */
-    private boolean checkConditions(VectorTimestamp expectedVts) {
-        VectorTimestamp currentVts = this.globalTs;
-        return (expectedVts.value.get(this.workerId) == currentVts.value.get(this.workerId) + 1) && true;
-    }
-
-    /**
      * Allow only when the task is the next expected (e.g., [1 0 0 0] is the next
      * expected for [0 0 0 0])
      */
     @Override
     public synchronized boolean ifAllowDeliver(TaskEntry<VectorTimestamp> task) {
-        Iterator<TaskEntry<VectorTimestamp>> itr = this.tasksQ.iterator();
-        TaskEntry<VectorTimestamp> expectedTask;
-        VectorTimestamp expectedVts;
+        Worker.logger.info(String.format("Comparing %s and %s", this.globalTs.value.toString(), task.ts.value.toString()));
+        return checkConditions(task.ts);
+    }
 
-        while (itr.hasNext()) {
-            expectedTask = itr.next();
-            expectedVts = expectedTask.ts;
-            // if (expectedVts.value.get(this.workerId) == currentVts.value.get() ) {
+    /**
+     * [1 1 0 1] [2 1 0 1]
+     */
+    private boolean checkConditions(VectorTimestamp expectedVts) {
+        VectorTimestamp currentVts = this.globalTs;
+        boolean conditionOne = (expectedVts.value.get(this.workerId) == currentVts.value.get(this.workerId) + 1);
 
-            // }
+        int badCount = 0;
+        for (int i = 0; i < expectedVts.value.size(); i++) {
+            if (i != this.workerId) {
+                if (currentVts.value.get(i) - expectedVts.value.get(this.workerId) < 0) {
+                    badCount++;
+                }
+                ;
+            }
         }
-        return false;
+        return conditionOne && badCount == 0;
     }
 
     @Override

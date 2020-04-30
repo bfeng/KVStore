@@ -1,0 +1,79 @@
+package kvstore.consistency.tasks;
+
+import kvstore.common.WriteReq;
+import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.bases.Timestamp;
+import kvstore.consistency.timestamps.VectorTimestamp;
+import kvstore.consistency.timestamps.ScalarTimestamp;
+import kvstore.servers.BcastResp;
+import kvstore.servers.Worker;
+import kvstore.servers.WriteReqBcast;
+import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
+
+public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
+    private int workerId;
+    private WorkerServiceBlockingStub[] workerStubs;
+    private WriteReq req;
+
+    public BcastWriteTask(T ts,int workerId, WriteReq req, WorkerServiceBlockingStub[] workerStubs) {
+        super(ts);
+        this.req = req;
+        this.workerStubs = workerStubs;
+        this.workerId = workerId;
+    }
+
+    public void setTimestamp(T currentTs) {
+        this.ts = currentTs;
+        return;
+    }
+
+    private void bcastWriteReq() throws InterruptedException {
+        if (req.getMode().equals("Sequential")) {
+            int clock = ((ScalarTimestamp) (ts)).localClock;
+            for (int i = 0; i < this.workerStubs.length; i++) {
+                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(this.workerId).setReceiver(i)
+                        .setRequest(this.req).setSenderClock(clock).setMode(this.req.getMode()).build();
+                BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
+                // Worker.logger.info(String.format("<<<Worker[%d]--broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+                //         writeReqBcast.getSenderClock(), writeReqBcast.getSender(), resp.getReceiver()));
+            }
+        } else if (req.getMode().equals("Causal")) {
+            for (int i = 0; i < this.workerStubs.length; i++) {
+                VectorTimestamp vts = (VectorTimestamp) ts;
+
+                WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(this.workerId).setReceiver(i)
+                        .setRequest(this.req).setMode(req.getMode()).addAllVts(vts.value).build();
+
+                BcastResp resp = workerStubs[i].handleBcastWrite(writeReqBcast);
+                // logger.info(String.format("<<<Worker[%d]
+                // --broadcastMessage[%d][%d]-->Worker[%d]>>>", workerId,
+                // writeReqBcast.getSenderClock(), writeReqBcast.getSender(),
+                // resp.getReceiver()));
+            }
+        }
+
+    }
+
+    @Override
+    public void run() {
+        try {
+            bcastWriteReq();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public String getTaskId() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public int compareTo(TaskEntry<T> o) {
+        // TODO Auto-generated method stub
+        return 0;
+    }
+
+}

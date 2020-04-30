@@ -34,5 +34,4 @@ public abstract class Scheduler<T extends Timestamp> implements Runnable {
      */
     abstract public T updateAndIncrementTimeStamp(int SenderTimeStamp);
 
-
 }

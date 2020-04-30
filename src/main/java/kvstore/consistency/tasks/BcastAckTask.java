@@ -40,8 +40,8 @@ public class BcastAckTask extends TaskEntry<Timestamp> {
                 AckResp resp = this.workerStubs[i].handleAck(request);
 
                 /* For debugging */
-                Worker.logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId,
-                        request.getClock(), request.getId(), i));
+                // Worker.logger.info(String.format("Worker[%d] --ACK_Message[%d][%d]--> Worker[%d]", senderId,
+                //         request.getClock(), request.getId(), i));
             }
         }
     }
