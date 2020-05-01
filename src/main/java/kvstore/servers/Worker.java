@@ -3,6 +3,7 @@ package kvstore.servers;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Random;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
@@ -160,6 +161,11 @@ public class Worker extends ServerBase {
                  * Initialize a empty vector. The timestamp for the write task is determined
                  * when issuing
                  */
+                try {
+                    Thread.sleep(new Random().nextInt(2) * 1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
                 VectorTimestamp zerosVts = new VectorTimestamp(worker.getWorkerConf().size());
                 BcastWriteTask<VectorTimestamp> bcastWriteTask = new BcastWriteTask<VectorTimestamp>(zerosVts,
                         worker.workerId, request, worker.workerStubs);
@@ -192,7 +198,7 @@ public class Worker extends ServerBase {
                 /* Enqueue a new write task */
                 worker.seqSche.addTask(newWriteTASK);
             } else if (request.getMode().equals("Causal")) {
-                Worker.logger.info(String.format("Received vts: %s", request.getVtsList().toString()));
+                // Worker.logger.info(String.format("Received vts: %s", request.getVtsList().toString()));
                 /* Create a new write task */
                 VectorTimestamp vts = new VectorTimestamp(worker.workerId);
                 vts.value = new Vector<Integer>(request.getVtsList());

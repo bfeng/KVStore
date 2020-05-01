@@ -3,6 +3,7 @@ package kvstore.consistency.schedulers;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.PriorityBlockingQueue;
 
 import kvstore.consistency.bases.Scheduler;
 import kvstore.consistency.bases.TaskEntry;
@@ -17,6 +18,7 @@ import kvstore.servers.Worker;
  * queue starting the task if allowed.
  */
 public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
+    protected PriorityBlockingQueue<TaskEntry<ScalarTimestamp>> tasksQ;
     private ConcurrentHashMap<String, Boolean[]> acksMap;
     private int ackLimit;
 
@@ -34,6 +36,7 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
     public SequentialScheduler(ScalarTimestamp ts, int ackLimit) throws SecurityException, IOException {
         super(ts);
         /* A hashmap contains all happened acknowledgement */
+        this.tasksQ = new PriorityBlockingQueue<TaskEntry<ScalarTimestamp>>(1024);
         this.acksMap = new ConcurrentHashMap<String, Boolean[]>(1024);
         this.ackLimit = ackLimit;
     }
@@ -152,6 +155,12 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
         int localClock = this.globalTs.localClock;
         int id = this.globalTs.id;
         return (new ScalarTimestamp(localClock, id));
+    }
+
+    @Override
+    public ScalarTimestamp getCurrentTimestamp() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

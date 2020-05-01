@@ -6,8 +6,10 @@ import kvstore.consistency.bases.Timestamp;
 
 public class VectorTimestamp extends Timestamp {
     public Vector<Integer> value;
+    private int num;
 
     public VectorTimestamp(int num) {
+        this.num = num;
         this.value = new Vector<Integer>(num);
         for (int i = 0; i < num; i++) {
             this.value.add(0);
@@ -40,5 +42,6 @@ public class VectorTimestamp extends Timestamp {
         }
         return output;
     }
+
 
 }

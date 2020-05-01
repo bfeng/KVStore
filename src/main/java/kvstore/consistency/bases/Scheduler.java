@@ -3,10 +3,8 @@ package kvstore.consistency.bases;
 import java.util.concurrent.PriorityBlockingQueue;
 
 public abstract class Scheduler<T extends Timestamp> implements Runnable {
-    protected PriorityBlockingQueue<TaskEntry<T>> tasksQ;
     protected T globalTs;
     public Scheduler(T ts) {
-        this.tasksQ = new PriorityBlockingQueue<TaskEntry<T>>(1024);
         this.globalTs = ts;
     }
 
@@ -21,6 +19,8 @@ public abstract class Scheduler<T extends Timestamp> implements Runnable {
      * @throws InterruptedException
      */
     abstract public TaskEntry<T> addTask(TaskEntry<T> taskEntry);
+
+    abstract public T getCurrentTimestamp();
 
     /**
      * Increment the time stamp owned by the scheduler

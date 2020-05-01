@@ -11,7 +11,7 @@ import kvstore.servers.WriteReqBcast;
 import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
 
 public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
-    private int workerId;
+    public int workerId;
     private WorkerServiceBlockingStub[] workerStubs;
     private WriteReq req;
 
@@ -41,7 +41,7 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
             }
         } else if (req.getMode().equals("Causal")) {
             VectorTimestamp vts = (VectorTimestamp) ts;
-            Worker.logger.info(String.format("The current ts is %s", vts.value.toString()));
+            // Worker.logger.info(String.format("Vts to multicast: %s", vts.value.toString()));
             for (int i = 0; i < this.workerStubs.length; i++) {
                 if (i != this.workerId) { /* Don not send to itself in this case */
                     
