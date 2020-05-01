@@ -1,5 +1,7 @@
 package kvstore.consistency.tasks;
 
+import java.util.Random;
+
 import kvstore.common.WriteReq;
 import kvstore.consistency.bases.TaskEntry;
 import kvstore.consistency.bases.Timestamp;
@@ -41,11 +43,11 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
             }
         } else if (req.getMode().equals("Causal")) {
             VectorTimestamp vts = (VectorTimestamp) ts;
-            // Worker.logger.info(String.format("Vts to multicast: %s", vts.value.toString()));
+            // Worker.logger.info(String.format("Vts to multicast: %s",
+            // vts.value.toString()));
             for (int i = 0; i < this.workerStubs.length; i++) {
                 if (i != this.workerId) { /* Don not send to itself in this case */
-                    
-                    
+
                     WriteReqBcast writeReqBcast = WriteReqBcast.newBuilder().setSender(this.workerId).setReceiver(i)
                             .setRequest(this.req).setMode(req.getMode()).addAllVts(vts.value).build();
 
@@ -65,6 +67,7 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
     public void run() {
 
         try {
+            // Thread.sleep(new Random().nextInt(2 * 1000));
             bcastWriteReq();
         } catch (InterruptedException e) {
             e.printStackTrace();

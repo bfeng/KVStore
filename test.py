@@ -14,8 +14,8 @@ def set_up_arg_parser():
                         help='the number of workers')
     parser.add_argument('-t', type=int,
                         help='the number of requests')
-    parser.add_argument('-m', type=str, choices=['Sequential', 'Causal', 'Eventual', 'Linear'],
-                        help='the consistency model')
+    parser.add_argument('-m', type=str, choices=['Sequential', 'Causal', 'Eventual', 'Linear'], nargs='*',
+                        help='generate messages with different consistency model. Multiple options are allowed')
     return parser
 
 
@@ -32,7 +32,7 @@ def gen_tests_case(test_num, mode, ports):
     with open(f'./src/main/resources/client0.conf', 'a') as f:
         for i in range(test_num):
             f.write(
-                f'request:SET:test{i}:{random.choice(string.ascii_letters)}:{mode}\n')
+                f'request:SET:test{i}:{random.choice(string.ascii_letters)}:{random.choice(mode)}\n')
 
     print(f'Generated {test_num} requests...')
 

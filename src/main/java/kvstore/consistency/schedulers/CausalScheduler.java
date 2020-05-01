@@ -1,9 +1,6 @@
 package kvstore.consistency.schedulers;
 
-import java.util.Iterator;
 import java.util.Vector;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
 import kvstore.consistency.bases.Scheduler;
@@ -27,40 +24,24 @@ public class CausalScheduler extends Scheduler<VectorTimestamp> {
     @Override
     public void run() {
         try {
-
-            // Iterator<TaskEntry<VectorTimestamp>> itr = this.tasksQ.iterator();
-            // while (itr.hasNext()) {
-            // TaskEntry<VectorTimestamp> tmp = itr.next();
-            // Worker.logger.info(String.format("%s, %s", tmp.ts.value.toString(),
-            // tmp.getClass().getName()));
-            // }
             while (true) {
                 // Thread.sleep(1 * 1000);
                 TaskEntry<VectorTimestamp> task = this.tasksQ.take();
                 if (ifAllowDeliver(task)) {
                     if (task instanceof BcastWriteTask) {
                         /* Set the timstamp when multicast the write task */
-                        // Worker.logger.info(String.format("Current Vts before increment: %s",
-                        // this.globalTs.value.toString()));
                         int senderId = ((BcastWriteTask<VectorTimestamp>) task).workerId;
 
                         ((BcastWriteTask<VectorTimestamp>) (task)).setTimestamp(incrementAndGetTimeStamp());
-                        Worker.logger.info(String.format("<<<Message%s Delivered!>>> at %s from worker %d",
-                                task.ts.value.toString(), this.getCurrentTimestamp().value.toString(), senderId));
-                        // Worker.logger.info(String.format("Current Vts: %s",
-                        // this.globalTs.value.toString()));
+                        Worker.logger.info(String.format("<<<Message%s[%d] Delivered!>>> at %s[%d] | Mode: Causal",
+                                task.ts.value.toString(),senderId, this.getCurrentTimestamp().value.toString(), workerId));
                     } else if (task instanceof WriteTask) {
                         int senderId = ((WriteTask<VectorTimestamp>) task).writeReqBcast.getSender();
 
                         int old = this.globalTs.value.get(senderId);
                         this.globalTs.value.set(senderId, old + 1);
-                        Worker.logger.info(String.format("<<<Message%s Delivered!>>> at %s from worker %d",
-                                task.ts.value.toString(), this.getCurrentTimestamp().value.toString(), senderId));
-                        // Worker.logger.info(String.format("Allow delivering %s",
-                        // task.ts.value.toString()));
-
-                        // Worker.logger.info(String.format("Current Vts: %s",
-                        // this.globalTs.value.toString()));
+                        Worker.logger.info(String.format("<<<Message%s[%d] Delivered!>>> at %s[%d] | Mode: Causal",
+                                task.ts.value.toString(), senderId, this.getCurrentTimestamp().value.toString(), workerId));
                     }
 
                     Thread taskThread = new Thread(task);
@@ -88,17 +69,10 @@ public class CausalScheduler extends Scheduler<VectorTimestamp> {
         /* The bacstWriteTask is not restricted */
         if (task instanceof BcastWriteTask) {
             return true;
-        } else {
-            // Worker.logger.info(
-            // String.format("Comparing %s and %s", this.globalTs.value.toString(),
-            // task.ts.value.toString()));
         }
         return checkConditions(task.ts, ((WriteTask<VectorTimestamp>) task).writeReqBcast.getSender());
     }
 
-    /**
-     * [1 1 0 1] [2 1 0 1]
-     */
     private boolean checkConditions(VectorTimestamp expectedVts, int senderId) {
         VectorTimestamp currentVts = this.globalTs;
         boolean isExpectedFromSender = (expectedVts.value.get(senderId) == currentVts.value.get(senderId) + 1);

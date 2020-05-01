@@ -161,11 +161,11 @@ public class Worker extends ServerBase {
                  * Initialize a empty vector. The timestamp for the write task is determined
                  * when issuing
                  */
-                try {
-                    Thread.sleep(new Random().nextInt(2) * 1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+                // try {
+                //     Thread.sleep(new Random().nextInt(6 * 1000));
+                // } catch (InterruptedException e) {
+                //     e.printStackTrace();
+                // }
                 VectorTimestamp zerosVts = new VectorTimestamp(worker.getWorkerConf().size());
                 BcastWriteTask<VectorTimestamp> bcastWriteTask = new BcastWriteTask<VectorTimestamp>(zerosVts,
                         worker.workerId, request, worker.workerStubs);

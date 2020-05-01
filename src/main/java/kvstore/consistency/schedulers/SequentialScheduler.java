@@ -72,7 +72,7 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
                     taskThread.start();
                     taskThread.join();
                     Worker.logger
-                            .info(String.format("<<<Message[%d][%d] Delivered!>>>", task.ts.localClock, task.ts.id));
+                            .info(String.format("<<<Message[%d][%d] Delivered!>>> | Mode: Sequential", task.ts.localClock, task.ts.id));
 
                 } else {
 
