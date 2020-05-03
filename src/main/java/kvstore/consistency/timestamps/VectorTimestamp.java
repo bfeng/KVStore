@@ -6,7 +6,7 @@ import java.util.Vector;
 
 public class VectorTimestamp extends Timestamp {
     public Vector<Integer> value;
-    private int num;
+    private final int num;
 
     public VectorTimestamp(int num) {
         this.num = num;

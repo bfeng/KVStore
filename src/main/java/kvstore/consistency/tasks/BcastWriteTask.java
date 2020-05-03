@@ -11,8 +11,8 @@ import kvstore.servers.WriteReqBcast;
 
 public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
     public int workerId;
-    private WorkerServiceBlockingStub[] workerStubs;
-    private WriteReq req;
+    private final WorkerServiceBlockingStub[] workerStubs;
+    private final WriteReq req;
 
     public BcastWriteTask(T ts, int workerId, WriteReq req, WorkerServiceBlockingStub[] workerStubs) {
         super(ts);
@@ -23,7 +23,6 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
 
     public void setTimestamp(T currentTs) {
         this.ts = currentTs;
-        return;
     }
 
     private void bcastWriteReq() throws InterruptedException {

@@ -20,7 +20,7 @@ public class Master extends ServerBase {
     private static final Logger logger = Logger.getLogger(Master.class.getName());
     private final int port;
     private final Map<Integer, Integer> clusterStatus;
-    private FileHandler fh;
+    private final FileHandler fh;
     private WorkerServiceGrpc.WorkerServiceBlockingStub[] workerStubs;
     private ManagedChannel[] workerChannels;
 

@@ -18,8 +18,8 @@ import java.util.concurrent.PriorityBlockingQueue;
  */
 public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
     protected PriorityBlockingQueue<TaskEntry<ScalarTimestamp>> tasksQ;
-    private ConcurrentHashMap<String, Boolean[]> acksMap;
-    private int ackLimit;
+    private final ConcurrentHashMap<String, Boolean[]> acksMap;
+    private final int ackLimit;
 
     /**
      * The ackMaps contains all happened acknowledgement for each message. The value
@@ -109,9 +109,7 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
     @Override
     public synchronized boolean ifAllowDeliver(TaskEntry<ScalarTimestamp> task) {
         String key = task.getTaskId();
-        if (!this.acksMap.containsKey(key) || Arrays.asList(this.acksMap.get(key)).contains(false))
-            return false;
-        return true;
+        return this.acksMap.containsKey(key) && !Arrays.asList(this.acksMap.get(key)).contains(false);
     }
 
     /**

@@ -11,8 +11,8 @@ import java.util.Vector;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class EventualScheduler extends Scheduler<VectorTimestamp> {
-    private int workerId;
-    private LinkedBlockingDeque<TaskEntry<VectorTimestamp>> tasksQ;
+    private final int workerId;
+    private final LinkedBlockingDeque<TaskEntry<VectorTimestamp>> tasksQ;
 
     public EventualScheduler(VectorTimestamp ts, int workerId) {
         super(ts);

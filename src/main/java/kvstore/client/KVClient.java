@@ -19,10 +19,10 @@ import java.util.logging.Logger;
 
 public class KVClient {
     private static final Logger logger = Logger.getLogger(KVClient.class.getName());
-    private int clientId;
+    private final int clientId;
     private int serverPort;
     private String serverIp;
-    private List<ReqContent> reqList;
+    private final List<ReqContent> reqList;
     ManagedChannel masterChannel;
 
     public KVClient(String configuration, int clientId) {
@@ -30,7 +30,7 @@ public class KVClient {
         reqList = new ArrayList<>();
         try {
             parse(configuration);
-            logger.info("configure server: " + serverIp + ":" + Integer.toString(serverPort));
+            logger.info("configure server: " + serverIp + ":" + serverPort);
         } catch (IOException e) {
             //
         }

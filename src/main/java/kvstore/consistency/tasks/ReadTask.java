@@ -9,7 +9,7 @@ import java.util.Map;
 
 public class ReadTask<T extends Timestamp> extends TaskEntry<T> {
     public ReadReqBcast readReqBcast;
-    private Map<String, String> dataStore;
+    private final Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
     private int bcastCount;
     public int localClock;

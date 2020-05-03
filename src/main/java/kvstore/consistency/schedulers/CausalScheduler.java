@@ -11,8 +11,8 @@ import kvstore.consistency.timestamps.VectorTimestamp;
 import kvstore.servers.Worker;
 
 public class CausalScheduler extends Scheduler<VectorTimestamp> {
-    private int workerId;
-    private LinkedBlockingDeque<TaskEntry<VectorTimestamp>> tasksQ;
+    private final int workerId;
+    private final LinkedBlockingDeque<TaskEntry<VectorTimestamp>> tasksQ;
 
     public CausalScheduler(VectorTimestamp ts, int worker_num, int workerId) {
         super(ts);

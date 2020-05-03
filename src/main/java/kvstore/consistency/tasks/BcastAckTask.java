@@ -8,9 +8,9 @@ import kvstore.servers.AckResp;
 import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
 
 public class BcastAckTask extends TaskEntry<Timestamp> {
-    private int senderId;
+    private final int senderId;
     public int id;
-    private WorkerServiceBlockingStub[] workerStubs;
+    private final WorkerServiceBlockingStub[] workerStubs;
 
     /**
      * @param localClock the clock of the message to acknowledge

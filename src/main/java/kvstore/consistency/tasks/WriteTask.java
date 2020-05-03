@@ -14,7 +14,7 @@ import kvstore.servers.WriteReqBcast;
 */
 public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
     public WriteReqBcast writeReqBcast;
-    private Map<String, String> dataStore;
+    private final Map<String, String> dataStore;
     private BcastAckTask bcastAckTask;
     private int bcastCount;
     public int localClock;

@@ -28,8 +28,8 @@ public class Worker extends ServerBase {
     private final int workerId;
     private final int port;
     private final Map<String, String> dataStore = new ConcurrentHashMap<>();
-    private SequentialScheduler seqSche;
-    private CausalScheduler causalSche;
+    private final SequentialScheduler seqSche;
+    private final CausalScheduler causalSche;
     private ManagedChannel masterChannel;
     private ManagedChannel[] workerChannels;
     private WorkerServiceGrpc.WorkerServiceBlockingStub[] workerStubs;
