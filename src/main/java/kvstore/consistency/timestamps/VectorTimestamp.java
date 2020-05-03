@@ -1,8 +1,8 @@
 package kvstore.consistency.timestamps;
 
-import java.util.Vector;
-
 import kvstore.consistency.bases.Timestamp;
+
+import java.util.Vector;
 
 public class VectorTimestamp extends Timestamp {
     public Vector<Integer> value;
@@ -18,21 +18,20 @@ public class VectorTimestamp extends Timestamp {
 
     @Override
     public String genKey() {
-        // TODO Auto-generated method stub
         return null;
     }
 
     /**
      * Minus two vector timstamp
      * [0 0 0 0]  [0 0 0 0]
-     * 
+     * <p>
      * [1 0 0 0]  [1 0 0 0]
      * [1 1 0 0]  [1 1 0 0]
      * [1 0 0 1]  [1 0 0 1]
-     * 
+     * <p>
      * o1 [1 0 0 0] o2 [0 0 0 0] which is at the top of the queue?
      * o1 - o2 = 1
-    */
+     */
     @Override
     public int minus(Timestamp timestamp) {
         VectorTimestamp other = (VectorTimestamp) timestamp;

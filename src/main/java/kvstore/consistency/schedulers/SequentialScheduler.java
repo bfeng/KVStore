@@ -1,16 +1,15 @@
 package kvstore.consistency.schedulers;
 
+import kvstore.consistency.bases.Scheduler;
+import kvstore.consistency.bases.TaskEntry;
+import kvstore.consistency.tasks.WriteTask;
+import kvstore.consistency.timestamps.ScalarTimestamp;
+import kvstore.servers.Worker;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
-
-import kvstore.consistency.bases.Scheduler;
-import kvstore.consistency.bases.TaskEntry;
-import kvstore.consistency.bases.Timestamp;
-import kvstore.consistency.tasks.WriteTask;
-import kvstore.consistency.timestamps.ScalarTimestamp;
-import kvstore.servers.Worker;
 
 /**
  * All incoming operations are enqueue into a priority queue sorted by a
@@ -118,7 +117,7 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
     /**
      * Update the ack for the specified message represented by the key. This method
      * must be synchronized because it can be accessed by multiple threads
-     * 
+     *
      * @param ackReq an acknowledgement request
      * @return
      */
@@ -159,7 +158,6 @@ public class SequentialScheduler extends Scheduler<ScalarTimestamp> {
 
     @Override
     public ScalarTimestamp getCurrentTimestamp() {
-        // TODO Auto-generated method stub
         return null;
     }
 

@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
@@ -106,8 +105,6 @@ public class Master extends ServerBase {
      * Send write requests to workers and wait for response
      *
      * @throws InterruptedException
-     * @Todo: channel timeout shoule be customized
-     * @Todo: The returned status is only a mock return
      */
     private WriteResp sendWriteReq(int workerId, WriteReq req) throws InterruptedException {
         WriteResp resp = this.workerStubs[workerId].handleWrite(req);
@@ -153,8 +150,6 @@ public class Master extends ServerBase {
         /**
          * Distribute the messages to workers. The distribution is asynchronous, so able
          * to handle multiple requests at the same time
-         *
-         * @Todo: Code for handling return status required
          */
         @Override
         public void writeMsg(WriteReq request, StreamObserver<WriteResp> responseObserver) {

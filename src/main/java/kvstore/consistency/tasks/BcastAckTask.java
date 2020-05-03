@@ -5,7 +5,6 @@ import kvstore.consistency.bases.Timestamp;
 import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.servers.AckReq;
 import kvstore.servers.AckResp;
-import kvstore.servers.Worker;
 import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
 
 public class BcastAckTask extends TaskEntry<Timestamp> {
@@ -48,13 +47,11 @@ public class BcastAckTask extends TaskEntry<Timestamp> {
 
     @Override
     public String getTaskId() {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public int compareTo(TaskEntry<Timestamp> o) {
-        // TODO Auto-generated method stub
         return 0;
     }
 

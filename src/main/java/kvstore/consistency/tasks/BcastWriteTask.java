@@ -1,16 +1,13 @@
 package kvstore.consistency.tasks;
 
-import java.util.Random;
-
 import kvstore.common.WriteReq;
 import kvstore.consistency.bases.TaskEntry;
 import kvstore.consistency.bases.Timestamp;
-import kvstore.consistency.timestamps.VectorTimestamp;
 import kvstore.consistency.timestamps.ScalarTimestamp;
+import kvstore.consistency.timestamps.VectorTimestamp;
 import kvstore.servers.BcastResp;
-import kvstore.servers.Worker;
-import kvstore.servers.WriteReqBcast;
 import kvstore.servers.WorkerServiceGrpc.WorkerServiceBlockingStub;
+import kvstore.servers.WriteReqBcast;
 
 public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
     public int workerId;
@@ -77,7 +74,6 @@ public class BcastWriteTask<T extends Timestamp> extends TaskEntry<T> {
 
     @Override
     public String getTaskId() {
-        // TODO Auto-generated method stub
         return null;
     }
 

@@ -1,22 +1,11 @@
 package kvstore.servers;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.Map;
-import java.util.Random;
-import java.util.Vector;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.FileHandler;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
-
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
-import kvstore.consistency.bases.Timestamp;
 import kvstore.consistency.schedulers.CausalScheduler;
 import kvstore.consistency.schedulers.SequentialScheduler;
 import kvstore.consistency.tasks.BcastAckTask;
@@ -24,6 +13,15 @@ import kvstore.consistency.tasks.BcastWriteTask;
 import kvstore.consistency.tasks.WriteTask;
 import kvstore.consistency.timestamps.ScalarTimestamp;
 import kvstore.consistency.timestamps.VectorTimestamp;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Map;
+import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public class Worker extends ServerBase {
     public static final Logger logger = Logger.getLogger(Worker.class.getName());
@@ -145,8 +143,6 @@ public class Worker extends ServerBase {
         /**
          * When receiving a write request, the worker broadcasts the message to other
          * workers
-         *
-         * @TODO: Currently the worker doesn't return status to the master
          */
         @Override
         public void handleWrite(WriteReq request, StreamObserver<WriteResp> responseObserver) {
