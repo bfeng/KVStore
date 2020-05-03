@@ -15,5 +15,6 @@ message MasterResponse {
 
 service MasterService {
     rpc reportStatus (WorkerStatus) returns (MasterResponse);
+    rpc readMsg (kvstore.common.ReadReq) returns (kvstore.common.ReadResp);
     rpc writeMsg (kvstore.common.WriteReq) returns (kvstore.common.WriteResp);
 }

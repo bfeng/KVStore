@@ -3,6 +3,8 @@ package kvstore.client;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import kvstore.common.ReadReq;
+import kvstore.common.ReadResp;
 import kvstore.common.WriteReq;
 import kvstore.common.WriteResp;
 import kvstore.servers.MasterServiceGrpc;
@@ -132,6 +134,13 @@ public class KVClient {
         });
     }
 
+    void readSync(String key, String mode, CountDownLatch finishLatch) {
+        MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(masterChannel);
+        ReadReq readReq = ReadReq.newBuilder().setKey(key).setMode(mode).build();
+        ReadResp resp = stub.readMsg(readReq);
+        finishLatch.countDown();
+    }
+
     void writeSync(String key, String value, String mode, CountDownLatch finishLatch) {
         MasterServiceGrpc.MasterServiceBlockingStub stub = MasterServiceGrpc.newBlockingStub(masterChannel);
         WriteReq writeReq = WriteReq.newBuilder().setKey(key).setVal(value).setMode(mode).build();
@@ -170,7 +179,12 @@ public class KVClient {
         CompletionService<Integer> service = new ExecutorCompletionService<>(threadPool);
         for (ReqContent req : client.reqList) {
             logger.info(String.format("%s:%s:%s:%s", req.getAct(), req.getKey(), req.getVal(), req.getOpt()));
-            if (req.getAct() == 1) {
+            if (req.getAct() == 0) {
+                service.submit(() -> {
+                    client.readSync(req.getKey(), req.getOpt(), finishLatch);
+                    return 0;
+                });
+            } else if (req.getAct() == 1) {
                 service.submit(() -> {
                     client.writeSync(req.getKey(), req.getVal(), req.getOpt(), finishLatch);
                     return 0;

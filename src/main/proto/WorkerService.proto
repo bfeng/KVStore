@@ -4,6 +4,15 @@ import "Common.proto";
 
 package kvstore.servers;
 
+message ReadReqBcast {
+    int32 sender = 1;
+    int32 receiver = 2;
+    kvstore.common.ReadReq request = 3;
+    int32 senderClock = 4;
+    string mode = 5;
+    repeated int32 vts = 6;
+}
+
 message WriteReqBcast {
     int32 sender = 1;
     int32 receiver = 2;
@@ -32,7 +41,9 @@ message AckResp {
 }
 
 service WorkerService {
+    rpc handleRead (kvstore.common.ReadReq) returns (kvstore.common.ReadResp);
+    rpc handleBcastRead (ReadReqBcast) returns (BcastResp);
     rpc handleWrite (kvstore.common.WriteReq) returns (kvstore.common.WriteResp);
     rpc handleBcastWrite (WriteReqBcast) returns (BcastResp);
-    rpc handleAck(AckReq) returns (AckResp);
+    rpc handleAck (AckReq) returns (AckResp);
 }

@@ -17,7 +17,16 @@ message ServerResp {
     int32 status = 2;
     string val = 3;
 }
+message ReadReq {
+    string key = 1;
+    string mode = 3;
+}
 
+message ReadResp {
+    int32 receiver = 1;
+    int32 status = 2;
+    string val = 3;
+}
 
 message WriteReq {
     string key = 1;
