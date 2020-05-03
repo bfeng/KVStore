@@ -1,17 +1,17 @@
 package kvstore.consistency.tasks;
 
-import java.util.Map;
-
-import kvstore.common.WriteReq;
 import kvstore.consistency.bases.TaskEntry;
 import kvstore.consistency.bases.Timestamp;
 import kvstore.servers.Worker;
 import kvstore.servers.WriteReqBcast;
+
+import java.util.Map;
+
 /**
  * TaskEntry<ScalarTimestamp>
- *      ↓
+ * ↓
  * WritTask<ScalarTimestamp> Acceptable for sequentialScheduler
-*/
+ */
 public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
     public WriteReqBcast writeReqBcast;
     private final Map<String, String> dataStore;
@@ -22,10 +22,10 @@ public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
 
     /**
      * A runable class for implementing writing to the data store
-     * 
-     * @param localClock the clock when issues the write task
-     * @param writeReq   the write reqest sent by the master
-     * @param dataStore  the reference to the data store of the current worker
+     *
+     * @param ts            the clock timestamp
+     * @param writeReqBcast the write reqest sent by the master
+     * @param dataStore     the reference to the data store of the current worker
      */
     public WriteTask(T ts, WriteReqBcast writeReqBcast, Map<String, String> dataStore) {
         super(ts);
@@ -39,7 +39,7 @@ public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
      * Set a broadcast acknowledgement task for the write task. The broadcast
      * acknowledgement task will be ran by the scheduler when the current write task
      * is at the top of the task queue
-     * 
+     *
      * @param bcastAckTask
      */
     public void setBcastAckTask(BcastAckTask bcastAckTask) {
@@ -66,7 +66,7 @@ public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
 
     /**
      * Get how many times have broadcasted acks
-     * 
+     *
      * @return the bcastCount
      */
     public int getBcastCount() {
@@ -94,7 +94,7 @@ public class WriteTask<T extends Timestamp> extends TaskEntry<T> {
 
     /**
      * Compare the timestamp
-    */
+     */
     @Override
     public int compareTo(TaskEntry<T> other) {
         return this.ts.minus(other.ts);

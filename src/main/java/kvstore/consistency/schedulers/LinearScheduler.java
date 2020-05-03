@@ -100,7 +100,6 @@ public class LinearScheduler extends Scheduler<ScalarTimestamp> {
      * Update the ack for the specified message represented by the key. This method
      * must be synchronized because it can be accessed by multiple threads
      *
-     * @param ackReq an acknowledgement request
      * @return
      */
     public synchronized Boolean[] updateAck(ScalarTimestamp ts, int sender) {

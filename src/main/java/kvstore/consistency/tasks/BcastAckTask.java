@@ -13,9 +13,9 @@ public class BcastAckTask extends TaskEntry<Timestamp> {
     private final WorkerServiceBlockingStub[] workerStubs;
 
     /**
-     * @param localClock the clock of the message to acknowledge
-     * @param id         the id of the message to acknowledge
-     * @param senderId   the senderId who sends the ack
+     * @param ts          the clock of the message to acknowledge
+     * @param senderId    the id of the message to acknowledge
+     * @param workerStubs the stub which sends the ack
      */
     public BcastAckTask(Timestamp ts, int senderId, WorkerServiceBlockingStub[] workerStubs) {
         super(ts);
